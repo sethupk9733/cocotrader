@@ -2353,6 +2353,317 @@ function exportLedgerCSV() {
 window.renderFinanceView = renderFinanceView;
 window.exportLedgerCSV = exportLedgerCSV;
 
+function renderAnalyticsView(container) {
+  const target = container || getViewContainer();
+  if (!target) return;
+  const currency = store.data.traderInfo.currency;
+
+  const lots = store.getLots();
+  const sales = store.getSales();
+  const clients = store.getClients();
+  const workers = store.getWorkers();
+  const ledgerItems = getAccountingLedgerItems('', '', 'all', 'all');
+
+  // Overall Financial Summaries
+  const totalRevenue = sales.reduce((sum, s) => sum + Number(s.totalRevenue || 0), 0);
+  const totalOutflows = ledgerItems.filter(i => i.debit > 0).reduce((sum, i) => sum + Number(i.debit || 0), 0);
+  const netOperatingProfit = totalRevenue - totalOutflows;
+  const profitMargin = totalRevenue > 0 ? ((netOperatingProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+
+  // Gross & Net Harvest Nut Volumes
+  const totalGrossHarvested = lots.reduce((sum, l) => sum + Number(l.grossHarvestCount || 0), 0);
+  const totalBadNuts = lots.reduce((sum, l) => sum + Number(l.badNutCount || 0), 0);
+  const totalAcceptedNuts = totalGrossHarvested - totalBadNuts;
+
+  // Sales Categories: Coconuts vs Husks
+  const coconutSales = sales.filter(s => s.type !== 'husk');
+  const huskSales = sales.filter(s => s.type === 'husk');
+
+  const coconutRev = coconutSales.reduce((sum, s) => sum + Number(s.totalRevenue || 0), 0);
+  const coconutVol = coconutSales.reduce((sum, s) => sum + Number(s.quantity || 0), 0);
+  const avgNutRealizedPrice = coconutVol > 0 ? (coconutRev / coconutVol).toFixed(2) : '0.00';
+
+  const huskRev = huskSales.reduce((sum, s) => sum + Number(s.totalRevenue || 0), 0);
+  const huskVol = huskSales.reduce((sum, s) => sum + Number(s.huskQuantity || 0), 0);
+
+  // Revenue Percentage Split
+  const coconutPct = totalRevenue > 0 ? Math.round((coconutRev / totalRevenue) * 100) : 0;
+  const huskPct = totalRevenue > 0 ? Math.round((huskRev / totalRevenue) * 100) : 0;
+
+  // Outflow Breakdown
+  const clientSettlementTotal = ledgerItems.filter(i => i.type === 'client_payout').reduce((sum, i) => sum + Number(i.debit || 0), 0);
+  const workerWagesTotal = ledgerItems.filter(i => i.type === 'labour_wage').reduce((sum, i) => sum + Number(i.debit || 0), 0);
+  const operationalExpenseTotal = ledgerItems.filter(i => i.type === 'expense').reduce((sum, i) => sum + Number(i.debit || 0), 0);
+  const quickCashTotal = ledgerItems.filter(i => i.type.startsWith('quick_cash')).reduce((sum, i) => sum + Number(i.debit || 0), 0);
+
+  const clientPct = totalOutflows > 0 ? Math.round((clientSettlementTotal / totalOutflows) * 100) : 0;
+  const wagePct = totalOutflows > 0 ? Math.round((workerWagesTotal / totalOutflows) * 100) : 0;
+  const expPct = totalOutflows > 0 ? Math.round((operationalExpenseTotal / totalOutflows) * 100) : 0;
+  const qcPct = totalOutflows > 0 ? Math.round((quickCashTotal / totalOutflows) * 100) : 0;
+
+  // Farm Owner Yield Analytics Leaderboard
+  const farmPerformanceList = clients.map(c => {
+    const cLots = lots.filter(l => l.clientId === c.id);
+    const cycles = cLots.length;
+    const grossNuts = cLots.reduce((sum, l) => sum + Number(l.grossHarvestCount || 0), 0);
+    const badNuts = cLots.reduce((sum, l) => sum + Number(l.badNutCount || 0), 0);
+    const netNuts = grossNuts - badNuts;
+    const avgYield = cycles > 0 ? Math.round(grossNuts / cycles) : 0;
+
+    const cBills = store.getClientBills().filter(b => b.clientId === c.id);
+    const totalBilled = cBills.reduce((sum, b) => sum + Number(b.netPayable || 0), 0);
+    const totalPaid = cBills.reduce((sum, b) => sum + Number(b.amountPaid || 0), 0);
+
+    return {
+      id: c.id,
+      name: c.name,
+      location: c.location,
+      cycles,
+      grossNuts,
+      netNuts,
+      avgYield,
+      totalBilled,
+      totalPaid,
+      pendingBalance: totalBilled - totalPaid
+    };
+  }).sort((a, b) => b.grossNuts - a.grossNuts);
+
+  // Worker Productivity Analytics Leaderboard
+  const workerPerformanceList = workers.map(w => {
+    const wLogs = (store.data.attendanceLogs || []).filter(a => a.workerId === w.id);
+    const nutCount = wLogs.reduce((sum, a) => sum + Number(a.allocatedNutCount || 0), 0);
+    const totalPaid = (w.payrollHistory || []).reduce((sum, p) => sum + Number(p.netPaid || 0), 0);
+
+    return {
+      id: w.id,
+      name: w.name,
+      role: w.role,
+      lotsAttended: wLogs.length,
+      nutCount,
+      totalPaid
+    };
+  }).sort((a, b) => b.nutCount - a.nutCount);
+
+  target.innerHTML = `
+    <!-- Top Executive Analytics KPI Row -->
+    <div class="kpi-grid" style="margin-bottom:1.5rem;">
+      <div class="kpi-card" style="padding:1.25rem; background:linear-gradient(135deg, rgba(5,150,105,0.12), rgba(37,99,235,0.12)); border:2px solid var(--color-primary);">
+        <div class="kpi-header">
+          <span class="kpi-title" style="font-size:1rem; font-weight:700; color:var(--color-primary);">📈 Net Operating Profit</span>
+        </div>
+        <div class="kpi-value" style="font-size:2rem; color:${netOperatingProfit >= 0 ? 'var(--color-primary)' : 'var(--color-danger)'};">${currency} ${netOperatingProfit.toLocaleString()}</div>
+        <div class="kpi-subtext">
+          <span style="font-weight:700; color:var(--color-primary); background:rgba(5,150,105,0.15); padding:0.15rem 0.5rem; border-radius:4px;">
+            Net Margin: ${profitMargin}%
+          </span>
+        </div>
+      </div>
+
+      <div class="kpi-card" style="padding:1.25rem;">
+        <div class="kpi-header">
+          <span class="kpi-title" style="font-size:1rem; font-weight:700;">🥥 Total Harvest Volume</span>
+        </div>
+        <div class="kpi-value" style="font-size:1.8rem; color:var(--color-primary);">${totalGrossHarvested.toLocaleString()} nuts</div>
+        <div class="kpi-subtext"><span>Net Accepted: ${totalAcceptedNuts.toLocaleString()} nuts</span></div>
+      </div>
+
+      <div class="kpi-card" style="padding:1.25rem;">
+        <div class="kpi-header">
+          <span class="kpi-title" style="font-size:1rem; font-weight:700;">💰 Realized Sales Price</span>
+        </div>
+        <div class="kpi-value" style="font-size:1.8rem; color:var(--color-accent);">${currency} ${avgNutRealizedPrice} / nut</div>
+        <div class="kpi-subtext"><span>Avg selling rate realized across buyers</span></div>
+      </div>
+
+      <div class="kpi-card" style="padding:1.25rem;">
+        <div class="kpi-header">
+          <span class="kpi-title" style="font-size:1rem; font-weight:700;">🌾 Total Revenue Inflow</span>
+        </div>
+        <div class="kpi-value" style="font-size:1.8rem; color:var(--color-primary);">${currency} ${totalRevenue.toLocaleString()}</div>
+        <div class="kpi-subtext"><span>Coconut + Coir Husk Sales</span></div>
+      </div>
+    </div>
+
+    <!-- Sales Analytics & Financial Expense Breakdown Split Row -->
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap:1.25rem; margin-bottom:1.5rem;">
+      
+      <!-- Card 1: Sales Revenue Analytics Breakdown -->
+      <div class="card-box" style="margin:0;">
+        <div class="card-box-header">
+          <h3 style="font-size:1.15rem;">💰 Revenue Inflow Analytics</h3>
+        </div>
+
+        <div style="margin-bottom:1.25rem;">
+          <div style="display:flex; justify-content:space-between; font-size:0.88rem; font-weight:700; margin-bottom:0.4rem;">
+            <span>🥥 Coconut Sales: ${coconutPct}% (${currency} ${coconutRev.toLocaleString()})</span>
+            <span>🌾 Husk Sales: ${huskPct}% (${currency} ${huskRev.toLocaleString()})</span>
+          </div>
+          <div style="height:12px; background:var(--bg-card-hover); border-radius:6px; overflow:hidden; display:flex;">
+            <div style="width:${coconutPct}%; background:var(--color-primary);"></div>
+            <div style="width:${huskPct}%; background:var(--color-accent);"></div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div style="background:var(--bg-card-hover); padding:0.85rem; border-radius:var(--radius-md); border-left:4px solid var(--color-primary);">
+            <div style="font-weight:700; font-size:0.95rem;">🥥 Coconut Sales Deliveries</div>
+            <div style="display:flex; justify-content:space-between; margin-top:0.3rem; font-size:0.88rem;">
+              <span style="color:var(--text-muted);">Total Deliveries: ${coconutSales.length}</span>
+              <span class="mono" style="font-weight:700;">${coconutVol.toLocaleString()} nuts</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-top:0.15rem;">
+              <span style="color:var(--text-muted);">Total Revenue:</span>
+              <span class="mono" style="color:var(--color-primary); font-weight:800;">${currency} ${coconutRev.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-card-hover); padding:0.85rem; border-radius:var(--radius-md); border-left:4px solid var(--color-accent);">
+            <div style="font-weight:700; font-size:0.95rem;">🌾 Coir Mill Husk Sales</div>
+            <div style="display:flex; justify-content:space-between; margin-top:0.3rem; font-size:0.88rem;">
+              <span style="color:var(--text-muted);">Total Deliveries: ${huskSales.length}</span>
+              <span class="mono" style="font-weight:700;">${huskVol.toLocaleString()} husks</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-top:0.15rem;">
+              <span style="color:var(--text-muted);">Total Revenue:</span>
+              <span class="mono" style="color:var(--color-accent); font-weight:800;">${currency} ${huskRev.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Financial Expense & Outflow Allocation Analytics -->
+      <div class="card-box" style="margin:0;">
+        <div class="card-box-header">
+          <h3 style="font-size:1.15rem;">🔴 Outflow Expense Breakdown</h3>
+        </div>
+
+        <div style="margin-bottom:1rem; font-size:0.9rem; font-weight:700; color:var(--text-muted);">
+          Total Business Outflows Paid: <strong class="mono" style="color:var(--color-danger); font-size:1.05rem;">${currency} ${totalOutflows.toLocaleString()}</strong>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:0.6rem; font-size:0.88rem;">
+          <div>
+            <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:0.25rem;">
+              <span>🌾 Farm Owner Settlement Bills</span>
+              <span class="mono">${clientPct}% (${currency} ${clientSettlementTotal.toLocaleString()})</span>
+            </div>
+            <div style="height:8px; background:var(--bg-card-hover); border-radius:4px; overflow:hidden;">
+              <div style="width:${clientPct}%; height:100%; background:var(--color-primary);"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:0.25rem;">
+              <span>👷 Worker Wage Payouts</span>
+              <span class="mono">${wagePct}% (${currency} ${workerWagesTotal.toLocaleString()})</span>
+            </div>
+            <div style="height:8px; background:var(--bg-card-hover); border-radius:4px; overflow:hidden;">
+              <div style="width:${wagePct}%; height:100%; background:var(--color-accent);"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:0.25rem;">
+              <span>🚚 Diesel & Operational Overhead</span>
+              <span class="mono">${expPct}% (${currency} ${operationalExpenseTotal.toLocaleString()})</span>
+            </div>
+            <div style="height:8px; background:var(--bg-card-hover); border-radius:4px; overflow:hidden;">
+              <div style="width:${expPct}%; height:100%; background:var(--color-danger);"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:0.25rem;">
+              <span>💵 Farmer & Worker Quick Cash</span>
+              <span class="mono">${qcPct}% (${currency} ${quickCashTotal.toLocaleString()})</span>
+            </div>
+            <div style="height:8px; background:var(--bg-card-hover); border-radius:4px; overflow:hidden;">
+              <div style="width:${qcPct}%; height:100%; background:rgba(245,158,11,0.9);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Farm Performance & Yield Leaderboard Table -->
+    <div class="card-box" style="margin-bottom:1.5rem;">
+      <div class="card-box-header">
+        <h3 style="font-size:1.2rem;">🌴 Farm Owner Yield & Harvest Performance Leaderboard</h3>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Farm Owner / Client</th>
+              <th>Location</th>
+              <th style="text-align:center;">Harvest Cycles</th>
+              <th style="text-align:right;">Total Gross Harvest</th>
+              <th style="text-align:right;">Avg Yield / Cycle</th>
+              <th style="text-align:right;">Total Billed</th>
+              <th style="text-align:right;">Pending Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${farmPerformanceList.length === 0 ? '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No farm owner performance data available.</td></tr>' : ''}
+            ${farmPerformanceList.map((c, idx) => `
+              <tr>
+                <td><strong style="font-size:1.05rem; color:var(--color-primary);">#${idx + 1}</strong></td>
+                <td><strong>${c.name}</strong></td>
+                <td><small style="color:var(--text-muted);">${c.location}</small></td>
+                <td style="text-align:center;"><span class="badge badge-role">${c.cycles} Cycles</span></td>
+                <td class="mono" style="text-align:right; font-weight:700; font-size:1.05rem;">${c.grossNuts.toLocaleString()} nuts</td>
+                <td class="mono" style="text-align:right; color:var(--color-primary); font-weight:700;">${c.avgYield.toLocaleString()} nuts</td>
+                <td class="mono" style="text-align:right;">${currency} ${c.totalBilled.toLocaleString()}</td>
+                <td class="mono" style="text-align:right; font-weight:700; ${c.pendingBalance > 0 ? 'color:var(--color-danger);' : 'color:var(--color-primary);'}">
+                  ${currency} ${c.pendingBalance.toLocaleString()}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Labour Productivity Leaderboard Table -->
+    <div class="card-box">
+      <div class="card-box-header">
+        <h3 style="font-size:1.2rem;">👷 Labour Productivity & Contribution Analytics</h3>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Worker Name</th>
+              <th>Primary Role</th>
+              <th style="text-align:center;">Lots Attended</th>
+              <th style="text-align:right;">Total Nut Contribution</th>
+              <th style="text-align:right;">Total Wages Settled</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${workerPerformanceList.length === 0 ? '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No worker productivity logs available.</td></tr>' : ''}
+            ${workerPerformanceList.map((w, idx) => `
+              <tr>
+                <td><strong style="font-size:1.05rem; color:var(--color-accent);">#${idx + 1}</strong></td>
+                <td><strong>${w.name}</strong></td>
+                <td><span class="badge badge-role">${w.role.toUpperCase()}</span></td>
+                <td style="text-align:center;"><span class="badge" style="background:var(--bg-card-hover); font-weight:700;">${w.lotsAttended} Lots</span></td>
+                <td class="mono" style="text-align:right; font-weight:700; color:var(--color-primary); font-size:1.05rem;">${w.nutCount.toLocaleString()} nuts</td>
+                <td class="mono" style="text-align:right; font-weight:700;">${currency} ${w.totalPaid.toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+window.renderAnalyticsView = renderAnalyticsView;
+
 function renderRatesView(container) {
   const target = container || getViewContainer();
   if (!target) return;
