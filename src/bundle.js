@@ -2935,9 +2935,9 @@ function openManageLotLabourModal(lotId) {
                   ${roleWorkers.map(w => {
                     const existingLog = existingAtt.find(a => a.workerId === w.id);
                     const isChecked = !!existingLog;
-                    const defaultNutCount = existingLog && existingLog.allocatedNutCount !== undefined 
-                      ? existingLog.allocatedNutCount 
-                      : autoRoleShare;
+                    const defaultNutCount = isChecked
+                      ? (existingLog && existingLog.allocatedNutCount !== undefined ? existingLog.allocatedNutCount : autoRoleShare)
+                      : 0;
 
                     return `
                       <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.45rem 0; border-bottom:1px dashed var(--border-color); flex-wrap:wrap;">
@@ -2953,6 +2953,12 @@ function openManageLotLabourModal(lotId) {
                     `;
                   }).join('')}
                 </div>
+
+                <!-- Role Card Bottom Total Summary -->
+                <div style="background:var(--bg-card); padding:0.5rem 0.85rem; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; font-size:0.88rem; font-weight:700;">
+                  <span style="color:var(--text-muted);">📊 Total Role Allocation:</span>
+                  <span id="roleTotal_${r.key}" class="mono" style="color:var(--color-primary); font-size:1.05rem; font-weight:800;">0 nuts</span>
+                </div>
               </div>
             `;
           }).join('')}
@@ -2964,6 +2970,20 @@ function openManageLotLabourModal(lotId) {
         </div>
       </form>
     `;
+
+    const calculateRoleLiveTotal = (roleKey) => {
+      const inputs = document.querySelectorAll(`input.nut-input-${roleKey}`);
+      let roleSum = 0;
+      inputs.forEach(inp => {
+        if (!inp.disabled) {
+          roleSum += Number(inp.value) || 0;
+        }
+      });
+      const totalEl = getEl('roleTotal_' + roleKey);
+      if (totalEl) {
+        totalEl.textContent = `${roleSum.toLocaleString()} nuts`;
+      }
+    };
 
     const recalculateRoleGroup = (roleKey) => {
       const checkedCbs = Array.from(document.querySelectorAll(`input[name="manageLotWorkerAtt"][data-role="${roleKey}"]:checked`));
@@ -2982,13 +3002,26 @@ function openManageLotLabourModal(lotId) {
         if (nutInp) {
           if (cb.checked) {
             nutInp.disabled = false;
-            nutInp.value = autoShare;
+            if (!nutInp.value || Number(nutInp.value) === 0) {
+              nutInp.value = autoShare;
+            }
           } else {
             nutInp.disabled = true;
+            nutInp.value = 0;
           }
         }
       });
+      calculateRoleLiveTotal(roleKey);
     };
+
+    rolesList.forEach(r => {
+      document.querySelectorAll(`.nut-input-${r.key}`).forEach(inp => {
+        inp.addEventListener('input', () => {
+          calculateRoleLiveTotal(r.key);
+        });
+      });
+      calculateRoleLiveTotal(r.key);
+    });
 
     document.querySelectorAll('input[name="manageLotWorkerAtt"]').forEach(cb => {
       cb.addEventListener('change', (e) => {
