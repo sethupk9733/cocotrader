@@ -524,14 +524,26 @@ class DataStore {
     this.data.harvestLots.unshift(lot);
 
     if (attendingWorkerIds && attendingWorkerIds.length > 0) {
-      const sharePerWorker = Math.round(lot.grossHarvestCount / attendingWorkerIds.length);
-      this.saveAttendance(lot.id, attendingWorkerIds.map(wId => ({
-        workerId: wId,
-        role: this.getWorkerById(wId)?.role || 'general',
-        status: 'present',
-        date: lot.harvestDate,
-        allocatedNutCount: sharePerWorker
-      })));
+      const roleCounts = {};
+      attendingWorkerIds.forEach(wId => {
+        const wrk = this.getWorkerById(wId);
+        const role = wrk ? wrk.role : 'general';
+        roleCounts[role] = (roleCounts[role] || 0) + 1;
+      });
+
+      this.saveAttendance(lot.id, attendingWorkerIds.map(wId => {
+        const wrk = this.getWorkerById(wId);
+        const role = wrk ? wrk.role : 'general';
+        const sameRoleCount = roleCounts[role] || 1;
+        const sharePerWorkerInRole = Math.round(lot.grossHarvestCount / sameRoleCount);
+        return {
+          workerId: wId,
+          role: role,
+          status: 'present',
+          date: lot.harvestDate,
+          allocatedNutCount: sharePerWorkerInRole
+        };
+      }));
     }
 
     this.saveData();
@@ -2598,11 +2610,6 @@ function getWorkerNutShareForLot(workerId, lotId, targetRole) {
   const attendanceForLot = store.getAttendanceForLot(lotId);
   const worker = store.getWorkerById(workerId);
   const effectiveRole = targetRole || (worker ? worker.role : '');
-
-  const myAtt = attendanceForLot.find(a => a.workerId === workerId);
-  if (myAtt && myAtt.allocatedNutCount !== undefined && myAtt.allocatedNutCount !== null) {
-    return Number(myAtt.allocatedNutCount);
-  }
 
   const sameRoleAtts = attendanceForLot.filter(a => {
     const w = store.getWorkerById(a.workerId);
