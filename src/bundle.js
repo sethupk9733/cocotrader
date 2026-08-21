@@ -2881,6 +2881,15 @@ function openManageLotLabourModal(lotId) {
 
   const workers = store.getWorkers();
   const existingAtt = store.getAttendanceForLot(lotId);
+  const grossHarvest = Number(lot.grossHarvestCount || 0);
+
+  const rolesList = [
+    { key: 'cutter', label: '🌴 Cutters / Tree Climbers (மரம் ஏறி / வெட்டுபவர்)' },
+    { key: 'picker', label: '🥥 Pickers / Collectors (தேங்காய் திரட்டுபவர்)' },
+    { key: 'dehusker', label: '🔨 Dehuskers (மட்டை உரிப்பவர்)' },
+    { key: 'driver', label: '🚚 Drivers / Loaders (வண்டி ஓட்டுனர் / லோடிங்)' },
+    { key: 'general', label: '👷 General Farm Labour (பொது தொழிலாளி)' }
+  ];
 
   const titleEl = getModalTitle();
   const bodyEl = getModalBody();
@@ -2889,60 +2898,102 @@ function openManageLotLabourModal(lotId) {
   if (bodyEl) {
     bodyEl.innerHTML = `
       <form id="manageLotLabourForm">
-        <div style="background:var(--bg-card-hover); padding:0.85rem 1rem; border-radius:var(--radius-md); margin-bottom:1.25rem;">
+        <!-- Lot Summary Header -->
+        <div style="background:var(--bg-card-hover); padding:0.85rem 1rem; border-radius:var(--radius-md); border-left:4px solid var(--color-primary); margin-bottom:1.25rem;">
           <h4 style="margin:0;">Harvest Lot: ${lot.lotNumber}</h4>
           <p style="font-size:0.85rem; color:var(--text-muted); margin:0.25rem 0 0 0;">
-            Harvest Date: <strong>${lot.harvestDate}</strong> | Gross Harvest: <strong style="color:var(--color-primary);">${lot.grossHarvestCount.toLocaleString()} nuts</strong>
+            Harvest Date: <strong>${lot.harvestDate}</strong> | Gross Harvest: <strong style="color:var(--color-primary); font-size:1.05rem;">${grossHarvest.toLocaleString()} nuts</strong>
           </p>
         </div>
 
-        <div class="form-group" style="background:var(--bg-card-hover); padding:1rem; border-radius:var(--radius-md); margin-bottom:1.25rem;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-            <label style="color:var(--color-primary); font-weight:700; margin:0;">Check / Edit Worker Attendance & Individual Nut Contributions</label>
-            <button type="button" class="btn btn-secondary btn-sm" style="font-weight:700;" onclick="window.openNewWorkerModal()">+ Create New Labour</button>
-          </div>
-
-          <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border-color); border-radius:6px; padding:0.5rem; background:var(--bg-card);">
-            ${workers.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem;">No worker profiles found. Click "+ Create New Labour" above to add worker profiles.</p>' : ''}
-            ${workers.map(w => {
-              const existingLog = existingAtt.find(a => a.workerId === w.id);
-              const isChecked = !!existingLog;
-              const defaultNutCount = existingLog && existingLog.allocatedNutCount !== undefined 
-                ? existingLog.allocatedNutCount 
-                : getWorkerNutShareForLot(w.id, lot.id, w.role);
-              return `
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.5rem; border-bottom:1px solid var(--border-color); flex-wrap:wrap;">
-                  <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-weight:600; flex:1; min-width:200px;">
-                    <input type="checkbox" name="manageLotWorkerAtt" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--color-primary);" />
-                    <span>👷 <strong>${w.name}</strong> <span class="badge badge-role" style="font-size:0.75rem; margin-left:0.3rem;">${w.role.toUpperCase()}</span></span>
-                  </label>
-                  <div style="display:flex; align-items:center; gap:0.4rem;">
-                    <span style="font-size:0.8rem; color:var(--text-muted);">Nuts:</span>
-                    <input type="number" id="nutCount_${w.id}" class="form-control mono" value="${defaultNutCount}" style="width:110px; font-weight:700; text-align:right;" placeholder="Nuts" ${!isChecked ? 'disabled' : ''} />
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+          <label style="color:var(--color-primary); font-weight:700; margin:0;">Check / Edit Worker Attendance & Nut Shares (Grouped by Role)</label>
+          <button type="button" class="btn btn-secondary btn-sm" style="font-weight:700;" onclick="window.openNewWorkerModal()">+ Create New Labour</button>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <div style="max-height:360px; overflow-y:auto; padding-right:0.25rem;">
+          ${rolesList.map(r => {
+            const roleWorkers = workers.filter(w => (w.role || 'general').toLowerCase() === r.key);
+            if (roleWorkers.length === 0) return '';
+
+            const checkedInRole = roleWorkers.filter(w => existingAtt.some(a => a.workerId === w.id));
+            const roleCount = checkedInRole.length;
+            const autoRoleShare = roleCount > 0 ? Math.round(grossHarvest / roleCount) : grossHarvest;
+
+            return `
+              <div class="role-group-card" style="background:var(--bg-card-hover); border:1px solid var(--border-color); border-radius:var(--radius-md); margin-bottom:1rem; overflow:hidden;">
+                <!-- Role Header Badge & Sub-total -->
+                <div style="background:rgba(5, 150, 105, 0.1); padding:0.6rem 0.85rem; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:var(--color-primary); font-size:0.95rem;">${r.label}</strong>
+                  <span id="roleBadge_${r.key}" class="badge badge-role" style="font-size:0.8rem; font-weight:700;">
+                    ${roleCount} Present | ${roleCount > 0 ? autoRoleShare.toLocaleString() + ' nuts / worker' : '0 nuts'}
+                  </span>
+                </div>
+
+                <!-- Worker Rows under Role -->
+                <div style="padding:0.5rem 0.85rem;">
+                  ${roleWorkers.map(w => {
+                    const existingLog = existingAtt.find(a => a.workerId === w.id);
+                    const isChecked = !!existingLog;
+                    const defaultNutCount = existingLog && existingLog.allocatedNutCount !== undefined 
+                      ? existingLog.allocatedNutCount 
+                      : autoRoleShare;
+
+                    return `
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.45rem 0; border-bottom:1px dashed var(--border-color); flex-wrap:wrap;">
+                        <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-weight:600; flex:1; min-width:180px;">
+                          <input type="checkbox" name="manageLotWorkerAtt" data-role="${r.key}" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--color-primary);" />
+                          <span>👷 <strong>${w.name}</strong></span>
+                        </label>
+                        <div style="display:flex; align-items:center; gap:0.4rem;">
+                          <span style="font-size:0.8rem; color:var(--text-muted);">Allocated Share:</span>
+                          <input type="number" id="nutCount_${w.id}" data-role="${r.key}" class="form-control mono nut-input-${r.key}" value="${defaultNutCount}" style="width:110px; font-weight:700; text-align:right;" placeholder="Nuts" ${!isChecked ? 'disabled' : ''} />
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="margin-top:1.25rem; display:flex; justify-content:flex-end; gap:0.5rem;">
           <button type="button" class="btn btn-secondary" onclick="window.closeModal()">Cancel</button>
           <button type="submit" class="btn btn-primary" style="font-weight:700;">Save Labour Contributions</button>
         </div>
       </form>
     `;
 
-    document.querySelectorAll('input[name="manageLotWorkerAtt"]').forEach(cb => {
-      cb.addEventListener('change', (e) => {
-        const wId = e.target.value;
+    const recalculateRoleGroup = (roleKey) => {
+      const checkedCbs = Array.from(document.querySelectorAll(`input[name="manageLotWorkerAtt"][data-role="${roleKey}"]:checked`));
+      const count = checkedCbs.length;
+      const autoShare = count > 0 ? Math.round(grossHarvest / count) : 0;
+
+      const badgeEl = getEl('roleBadge_' + roleKey);
+      if (badgeEl) {
+        badgeEl.textContent = `${count} Present | ${count > 0 ? autoShare.toLocaleString() + ' nuts / worker' : '0 nuts'}`;
+      }
+
+      const allCbs = document.querySelectorAll(`input[name="manageLotWorkerAtt"][data-role="${roleKey}"]`);
+      allCbs.forEach(cb => {
+        const wId = cb.value;
         const nutInp = getEl('nutCount_' + wId);
         if (nutInp) {
-          nutInp.disabled = !e.target.checked;
-          if (e.target.checked && (!nutInp.value || Number(nutInp.value) === 0)) {
-            nutInp.value = getWorkerNutShareForLot(wId, lot.id);
+          if (cb.checked) {
+            nutInp.disabled = false;
+            nutInp.value = autoShare;
+          } else {
+            nutInp.disabled = true;
           }
         }
+      });
+    };
+
+    document.querySelectorAll('input[name="manageLotWorkerAtt"]').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const roleKey = e.target.getAttribute('data-role');
+        if (roleKey) recalculateRoleGroup(roleKey);
       });
     });
 
@@ -2955,13 +3006,12 @@ function openManageLotLabourModal(lotId) {
         const wrk = store.getWorkerById(wId);
         const nutInp = getEl('nutCount_' + wId);
         const nutVal = nutInp ? Number(nutInp.value) : 0;
-        const finalCount = !isNaN(nutVal) ? nutVal : getWorkerNutShareForLot(wId, lot.id, wrk ? wrk.role : 'general');
         return {
           workerId: wId,
           role: wrk ? wrk.role : 'general',
           status: 'present',
           date: lot.harvestDate,
-          allocatedNutCount: finalCount
+          allocatedNutCount: !isNaN(nutVal) ? nutVal : 0
         };
       });
 
