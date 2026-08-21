@@ -1603,6 +1603,7 @@ function renderWagesView(container) {
               <th>Gross Count</th>
               <th>Net Accepted</th>
               <th>Labours Count</th>
+              <th>Edit Nut Split</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -1610,7 +1611,7 @@ function renderWagesView(container) {
             ${(() => {
               const filteredLotIds = [...new Set(logs.map(a => a.lotId))];
               const filteredLots = filteredLotIds.map(id => store.getLotById(id)).filter(Boolean);
-              if (filteredLots.length === 0) return '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No harvest lot entries match current filters.</td></tr>';
+              if (filteredLots.length === 0) return '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No harvest lot entries match current filters.</td></tr>';
               return filteredLots.map(l => {
                 const client = store.getClientById(l.clientId);
                 const attLogs = store.getAttendanceForLot(l.id);
@@ -1623,6 +1624,11 @@ function renderWagesView(container) {
                     <td class="mono">${l.grossHarvestCount.toLocaleString()} nuts</td>
                     <td class="mono" style="color:var(--color-primary); font-weight:700;">${accepted.toLocaleString()} nuts</td>
                     <td><span class="badge badge-role">${attLogs.length} Labours Present</span></td>
+                    <td>
+                      <button class="btn btn-secondary btn-sm" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="window.openEditLotNutSplitModal('${l.id}')">
+                        ✏️ Edit Nut Split
+                      </button>
+                    </td>
                     <td>
                       <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="window.openLotLaboursModal('${l.id}')">👁️ View Labour Details</button>
                     </td>
@@ -3031,6 +3037,138 @@ function openWorkerProfileModal(workerId) {
 
 
 
+function openEditLotNutSplitModal(lotId) {
+  const lot = store.getLotById(lotId);
+  if (!lot) return;
+  const client = store.getClientById(lot.clientId);
+  const attLogs = store.getAttendanceForLot(lotId);
+
+  if (!attLogs || attLogs.length === 0) {
+    alert("No workers registered for this harvest lot.");
+    return;
+  }
+
+  const grossNuts = Number(lot.grossHarvestCount || 0);
+
+  const titleEl = getModalTitle();
+  const bodyEl = getModalBody();
+  if (titleEl) titleEl.textContent = `✏️ Edit Labour Nut Count Split: ${lot.lotNumber}`;
+
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      <form id="editLotNutSplitForm">
+        <div style="background:var(--bg-card-hover); padding:1rem; border-radius:var(--radius-md); border-left:4px solid var(--color-primary); margin-bottom:1.25rem;">
+          <h4 style="margin:0; font-size:1.05rem;">📍 Farm Owner: ${client ? client.name : 'Unknown'} (${client ? client.location : ''})</h4>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
+            Harvest Date: <strong>${lot.harvestDate}</strong> | Total Gross Harvest Count: <strong style="color:var(--color-primary); font-size:1.1rem;" class="mono">${grossNuts.toLocaleString()} nuts</strong>
+          </p>
+          <div style="font-size:0.825rem; color:var(--text-muted); margin-top:0.25rem;">
+            💡 Customize manual nut count split per worker (e.g. 70-30 split: 7,000 nuts & 3,000 nuts for 2 Cutters).
+          </div>
+        </div>
+
+        <div style="font-weight:700; color:var(--color-primary); margin-bottom:0.75rem; font-size:1.05rem;">
+          👷 Labour Workers Present & Custom Nut Share Entry:
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:0.85rem; max-height:350px; overflow-y:auto; padding-right:0.3rem;">
+          ${attLogs.map(a => {
+            const w = store.getWorkerById(a.workerId);
+            const role = (a.role || (w ? w.role : 'general')).toLowerCase();
+            const currentNuts = getWorkerNutShareForLot(a.workerId, lotId, role);
+            const pct = grossNuts > 0 ? ((currentNuts / grossNuts) * 100).toFixed(1) : '0';
+
+            return `
+              <div style="background:var(--bg-card); border:1px solid var(--border-color); padding:0.85rem 1rem; border-radius:var(--radius-md);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem;">
+                  <div>
+                    <strong style="font-size:1.05rem;">${w ? w.name : 'Worker'}</strong>
+                    <span class="badge badge-role" style="margin-left:0.5rem;">${role.toUpperCase()}</span>
+                  </div>
+                  <div style="font-size:0.85rem; font-weight:700; color:var(--text-muted);">
+                    Current Share: <span id="pct_${a.workerId}" class="mono" style="color:var(--color-primary);">${pct}% (${currentNuts.toLocaleString()} nuts)</span>
+                  </div>
+                </div>
+
+                <div class="form-row" style="margin-bottom:0; align-items:center;">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:600;">Custom Nut Count for ${w ? w.name : 'Worker'}</label>
+                    <input type="number" id="splitNut_${a.workerId}" data-worker-id="${a.workerId}" data-role="${role}" class="form-control mono split-nut-input" style="font-weight:700; font-size:1.05rem;" value="${currentNuts}" step="10" required />
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div id="splitSummaryBox" class="calc-summary-box" style="margin-top:1.25rem;"></div>
+
+        <div style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="window.closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" style="font-weight:700;">Save Custom Split</button>
+        </div>
+      </form>
+    `;
+
+    const inputs = document.querySelectorAll('.split-nut-input');
+    const updateSplitSummary = () => {
+      const roleTotals = {};
+      inputs.forEach(inp => {
+        const r = inp.getAttribute('data-role');
+        const val = Number(inp.value) || 0;
+        roleTotals[r] = (roleTotals[r] || 0) + val;
+
+        const wId = inp.getAttribute('data-worker-id');
+        const pctEl = getEl(`pct_${wId}`);
+        if (pctEl) {
+          const pct = grossNuts > 0 ? ((val / grossNuts) * 100).toFixed(1) : '0';
+          pctEl.textContent = `${pct}% (${val.toLocaleString()} nuts)`;
+        }
+      });
+
+      const summaryBox = getEl('splitSummaryBox');
+      if (summaryBox) {
+        summaryBox.innerHTML = `
+          <h4 style="margin:0 0 0.5rem 0; font-size:0.95rem; color:var(--color-primary);">📊 Live Role Nut Split Summary (Gross: ${grossNuts.toLocaleString()} nuts):</h4>
+          ${Object.keys(roleTotals).map(r => {
+            const tot = roleTotals[r];
+            const diff = tot - grossNuts;
+            const isMatch = Math.abs(diff) < 2;
+            const color = isMatch ? 'var(--color-primary)' : 'var(--color-accent)';
+            return `
+              <div class="calc-summary-row" style="font-weight:700;">
+                <span>${r.toUpperCase()} Total Allocated:</span>
+                <span class="mono" style="color:${color};">${tot.toLocaleString()} / ${grossNuts.toLocaleString()} nuts ${isMatch ? '✅ (100%)' : `(${tot > grossNuts ? '+' : ''}${diff.toLocaleString()} nuts)`}</span>
+              </div>
+            `;
+          }).join('')}
+        `;
+      }
+    };
+
+    inputs.forEach(inp => inp.addEventListener('input', updateSplitSummary));
+    updateSplitSummary();
+
+    getEl('editLotNutSplitForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      inputs.forEach(inp => {
+        const wId = inp.getAttribute('data-worker-id');
+        const val = Number(inp.value) || 0;
+        const att = attLogs.find(a => a.workerId === wId);
+        if (att) {
+          att.allocatedNutCount = val;
+        }
+      });
+
+      store.saveData();
+      closeModal();
+      renderView(currentTab);
+      alert(`Custom labour nut share split saved for ${lot.lotNumber}!`);
+    });
+  }
+  openModal();
+}
+
 function openLotLaboursModal(lotId) {
   const lot = store.getLotById(lotId);
   if (!lot) return;
@@ -3043,11 +3181,16 @@ function openLotLaboursModal(lotId) {
 
   if (bodyEl) {
     bodyEl.innerHTML = `
-      <div style="background:var(--bg-card-hover); padding:1rem; border-radius:var(--radius-md); margin-bottom:1.25rem;">
-        <h4 style="margin:0;">Farm Owner: ${client ? client.name : 'Unknown'} (${client ? client.location : ''})</h4>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
-          Harvest Date: <strong>${lot.harvestDate}</strong> | Gross Count: <strong>${lot.grossHarvestCount.toLocaleString()} nuts</strong> | Accepted: <strong style="color:var(--color-primary);">${(lot.grossHarvestCount - (lot.badNutCount || 0)).toLocaleString()} nuts</strong>
-        </p>
+      <div style="background:var(--bg-card-hover); padding:1rem; border-radius:var(--radius-md); margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+          <h4 style="margin:0;">Farm Owner: ${client ? client.name : 'Unknown'} (${client ? client.location : ''})</h4>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
+            Harvest Date: <strong>${lot.harvestDate}</strong> | Gross Count: <strong>${lot.grossHarvestCount.toLocaleString()} nuts</strong> | Accepted: <strong style="color:var(--color-primary);">${(lot.grossHarvestCount - (lot.badNutCount || 0)).toLocaleString()} nuts</strong>
+          </p>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="window.openEditLotNutSplitModal('${lot.id}')">
+          ✏️ Edit Custom Nut Split
+        </button>
       </div>
 
       <h4 style="margin-bottom:0.75rem; color:var(--color-primary); font-size:1.1rem;">👷 Labours Present & Work Contributions (${attLogs.length})</h4>
@@ -4865,6 +5008,7 @@ window.openNewExpenseModal = openNewExpenseModal;
 window.openMakeBillModal = openMakeBillModal;
 window.openLotDetailsModal = openLotDetailsModal;
 window.openLotLaboursModal = openLotLaboursModal;
+window.openEditLotNutSplitModal = openEditLotNutSplitModal;
 window.openGiveClientQuickCashModal = openGiveClientQuickCashModal;
 window.openGiveWorkerQuickCashModal = openGiveWorkerQuickCashModal;
 window.openWorkerPayrollModal = openWorkerPayrollModal;
