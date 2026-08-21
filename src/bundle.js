@@ -1415,35 +1415,31 @@ function renderWagesView(container) {
               <th>Farm Owner / Client</th>
               <th>Gross Count</th>
               <th>Net Accepted</th>
-              <th>Labours Count</th>
-              <th>Edit Nut Split</th>
-              <th>Action</th>
+              <th>Labours Present</th>
+              <th style="text-align:right;">Add / Manage Labour</th>
             </tr>
           </thead>
           <tbody>
             ${(() => {
               const filteredLotIds = [...new Set(logs.map(a => a.lotId))];
               const filteredLots = filteredLotIds.map(id => store.getLotById(id)).filter(Boolean);
-              if (filteredLots.length === 0) return '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No harvest lot entries match current filters.</td></tr>';
+              if (filteredLots.length === 0) return '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No harvest lot entries match current filters.</td></tr>';
               return filteredLots.map(l => {
                 const client = store.getClientById(l.clientId);
                 const attLogs = store.getAttendanceForLot(l.id);
                 const accepted = l.grossHarvestCount - (l.badNutCount || 0);
                 return `
-                  <tr style="cursor:pointer;" onclick="if(!event.target.closest('button')) window.openLotLaboursModal('${l.id}')">
+                  <tr style="cursor:pointer;" onclick="if(!event.target.closest('button')) window.openManageLotLabourModal('${l.id}')">
                     <td>${l.harvestDate}</td>
                     <td class="mono" style="font-size:1.05rem;"><strong>${l.lotNumber}</strong></td>
                     <td><strong>${client ? client.name : 'Unknown'}</strong><br><small style="color:var(--text-muted);">${client ? client.location : ''}</small></td>
                     <td class="mono">${l.grossHarvestCount.toLocaleString()} nuts</td>
                     <td class="mono" style="color:var(--color-primary); font-weight:700;">${accepted.toLocaleString()} nuts</td>
                     <td><span class="badge badge-role">${attLogs.length} Labours Present</span></td>
-                    <td>
-                      <button class="btn btn-secondary btn-sm" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="event.stopPropagation(); window.openEditLotNutSplitModal('${l.id}')">
-                        ✏️ Edit Nut Split
+                    <td style="text-align:right;">
+                      <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="event.stopPropagation(); window.openManageLotLabourModal('${l.id}')">
+                        👷 Add / Manage Labour
                       </button>
-                    </td>
-                    <td>
-                      <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="event.stopPropagation(); window.openLotLaboursModal('${l.id}')">👁️ View Labour Details</button>
                     </td>
                   </tr>
                 `;
@@ -2878,6 +2874,91 @@ function openWorkerProfileModal(workerId) {
 }
 
 
+
+function openManageLotLabourModal(lotId) {
+  const lot = store.getLotById(lotId);
+  if (!lot) return;
+
+  const workers = store.getWorkers();
+  const existingAtt = store.getAttendanceForLot(lotId);
+  const existingWorkerIds = existingAtt.map(a => a.workerId);
+
+  const titleEl = getModalTitle();
+  const bodyEl = getModalBody();
+  if (titleEl) titleEl.textContent = `👷 Add & Manage Labours: ${lot.lotNumber}`;
+
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      <form id="manageLotLabourForm">
+        <div style="background:var(--bg-card-hover); padding:0.85rem 1rem; border-radius:var(--radius-md); margin-bottom:1.25rem;">
+          <h4 style="margin:0;">Harvest Lot: ${lot.lotNumber}</h4>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin:0.25rem 0 0 0;">
+            Harvest Date: <strong>${lot.harvestDate}</strong> | Gross Harvest: <strong style="color:var(--color-primary);">${lot.grossHarvestCount.toLocaleString()} nuts</strong>
+          </p>
+        </div>
+
+        <div class="form-group" style="background:var(--bg-card-hover); padding:1rem; border-radius:var(--radius-md); margin-bottom:1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+            <label style="color:var(--color-primary); font-weight:700; margin:0;">Check Workers Present for this Farm Harvest</label>
+            <button type="button" class="btn btn-secondary btn-sm" style="font-weight:700;" onclick="window.openNewWorkerModal()">+ Create New Labour</button>
+          </div>
+
+          <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:6px; padding:0.5rem; background:var(--bg-card);">
+            ${workers.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem;">No worker profiles found. Click "+ Create New Labour" above to add worker profiles.</p>' : ''}
+            ${workers.map(w => {
+              const isChecked = existingWorkerIds.includes(w.id);
+              return `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:0.4rem 0.5rem; border-bottom:1px solid var(--border-color);">
+                  <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-weight:600; flex:1;">
+                    <input type="checkbox" name="manageLotWorkerAtt" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--color-primary);" />
+                    <span>👷 ${w.name} <span class="badge badge-role" style="font-size:0.75rem; margin-left:0.3rem;">${w.role.toUpperCase()}</span></span>
+                  </label>
+                  <span style="font-size:0.8rem; color:var(--text-muted);">${w.phone || ''}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="window.closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" style="font-weight:700;">Save Labours for Lot</button>
+        </div>
+      </form>
+    `;
+
+    getEl('manageLotLabourForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const checkedWorkerIds = Array.from(document.querySelectorAll('input[name="manageLotWorkerAtt"]:checked')).map(cb => cb.value);
+
+      const roleCounts = {};
+      checkedWorkerIds.forEach(wId => {
+        const wrk = store.getWorkerById(wId);
+        const role = wrk ? wrk.role : 'general';
+        roleCounts[role] = (roleCounts[role] || 0) + 1;
+      });
+
+      const attendanceArray = checkedWorkerIds.map(wId => {
+        const wrk = store.getWorkerById(wId);
+        const role = wrk ? wrk.role : 'general';
+        const sameRoleCount = roleCounts[role] || 1;
+        const sharePerWorkerInRole = Math.round(lot.grossHarvestCount / sameRoleCount);
+        return {
+          workerId: wId,
+          role: role,
+          status: 'present',
+          date: lot.harvestDate,
+          allocatedNutCount: sharePerWorkerInRole
+        };
+      });
+
+      store.saveAttendance(lot.id, attendanceArray);
+      closeModal();
+      renderView(currentTab);
+    });
+  }
+  openModal();
+}
 
 function openEditLotNutSplitModal(lotId) {
   const lot = store.getLotById(lotId);
@@ -5040,6 +5121,7 @@ window.openGenerateClientBillModal = openGenerateClientBillModal;
 window.openBillReviewModal = openBillReviewModal;
 window.openLotDetailsModal = openLotDetailsModal;
 window.openLotLaboursModal = openLotLaboursModal;
+window.openManageLotLabourModal = openManageLotLabourModal;
 window.openEditLotNutSplitModal = openEditLotNutSplitModal;
 window.openGiveClientQuickCashModal = openGiveClientQuickCashModal;
 window.openGiveWorkerQuickCashModal = openGiveWorkerQuickCashModal;
