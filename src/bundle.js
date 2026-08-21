@@ -2010,6 +2010,50 @@ function getAccountingLedgerItems(startDate, endDate, typeFilter, methodFilter) 
   return filtered;
 }
 
+function getFinanceDatesForPreset(preset, customStart = '', customEnd = '') {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  let start = '';
+  let end = '';
+  let label = 'All Time History';
+
+  if (preset === 'this_month') {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    start = firstDay.toISOString().slice(0, 10);
+    end = lastDay.toISOString().slice(0, 10);
+    const monthName = now.toLocaleString('default', { month: 'short' });
+    label = `Current Month (${monthName} ${year})`;
+  } else if (preset === 'quarterly') {
+    const quarterIndex = Math.floor(month / 3);
+    const qStartMonth = quarterIndex * 3;
+    const firstDay = new Date(year, qStartMonth, 1);
+    const lastDay = new Date(year, qStartMonth + 3, 0);
+    start = firstDay.toISOString().slice(0, 10);
+    end = lastDay.toISOString().slice(0, 10);
+    label = `Current Quarter (Q${quarterIndex + 1} ${year})`;
+  } else if (preset === 'annual') {
+    const firstDay = new Date(year, 0, 1);
+    const lastDay = new Date(year, 11, 31);
+    start = firstDay.toISOString().slice(0, 10);
+    end = lastDay.toISOString().slice(0, 10);
+    label = `Annual (${year})`;
+  } else if (preset === 'custom') {
+    start = customStart;
+    end = customEnd;
+    label = customStart && customEnd ? `Custom Range (${customStart} to ${customEnd})` : 'Custom Range';
+  } else {
+    preset = 'all';
+    start = '';
+    end = '';
+    label = 'All Time History';
+  }
+
+  return { start, end, label, preset };
+}
+
 function renderFinanceView(container) {
   const target = container || getViewContainer();
   if (!target) return;
@@ -2017,6 +2061,7 @@ function renderFinanceView(container) {
 
   if (!window.financeFilter) {
     window.financeFilter = {
+      periodPreset: 'this_month',
       startDate: '',
       endDate: '',
       typeFilter: 'all',
@@ -2024,8 +2069,18 @@ function renderFinanceView(container) {
     };
   }
 
-  const { startDate, endDate, typeFilter, methodFilter } = window.financeFilter;
-  const ledgerItems = getAccountingLedgerItems(startDate, endDate, typeFilter, methodFilter);
+  const { periodPreset, typeFilter, methodFilter } = window.financeFilter;
+  const periodInfo = getFinanceDatesForPreset(
+    periodPreset || 'this_month',
+    window.financeFilter.startDate,
+    window.financeFilter.endDate
+  );
+
+  const effectiveStart = periodInfo.start;
+  const effectiveEnd = periodInfo.end;
+  const periodLabel = periodInfo.label;
+
+  const ledgerItems = getAccountingLedgerItems(effectiveStart, effectiveEnd, typeFilter, methodFilter);
 
   // Totals calculation
   const totalInflow = ledgerItems.reduce((sum, i) => sum + i.credit, 0);
@@ -2037,10 +2092,35 @@ function renderFinanceView(container) {
   const expenseTotal = ledgerItems.filter(i => i.type === 'expense').reduce((sum, i) => sum + i.debit, 0);
   const quickCashTotal = ledgerItems.filter(i => i.type.startsWith('quick_cash')).reduce((sum, i) => sum + i.debit, 0);
 
-  const isFilterActive = !!(startDate || endDate || (typeFilter && typeFilter !== 'all') || (methodFilter && methodFilter !== 'all'));
+  const isFilterActive = !!(effectiveStart || effectiveEnd || (typeFilter && typeFilter !== 'all') || (methodFilter && methodFilter !== 'all'));
   const showPanel = window.showFinanceFilterPanel || false;
 
   target.innerHTML = `
+    <!-- Financial Period Selector Header Bar -->
+    <div style="background:var(--bg-card-hover); padding:0.85rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+      <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+        <span style="font-weight:700; color:var(--color-primary); font-size:1rem;">📅 Accounting Period:</span>
+        <select id="finPeriodPresetSelect" class="form-control" style="font-weight:700; width:auto;">
+          <option value="this_month" ${periodPreset === 'this_month' ? 'selected' : ''}>📅 Current Month (இந்த மாதம்)</option>
+          <option value="quarterly" ${periodPreset === 'quarterly' ? 'selected' : ''}>📊 Quarterly Results (இந்த காலாண்டு)</option>
+          <option value="annual" ${periodPreset === 'annual' ? 'selected' : ''}>📆 Annual Results (இந்த ஆண்டு)</option>
+          <option value="custom" ${periodPreset === 'custom' ? 'selected' : ''}>🗓️ Custom Date Range (குறிப்பிட்ட தேதி)</option>
+          <option value="all" ${periodPreset === 'all' ? 'selected' : ''}>🌐 All Time History (முழு வரலாறு)</option>
+        </select>
+      </div>
+
+      <div id="finCustomDateBox" style="display:${periodPreset === 'custom' ? 'flex' : 'none'}; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+        <input type="date" id="finKpiStartDate" class="form-control" value="${effectiveStart}" style="width:135px;" />
+        <span style="color:var(--text-muted); font-size:0.85rem;">to</span>
+        <input type="date" id="finKpiEndDate" class="form-control" value="${effectiveEnd}" style="width:135px;" />
+        <button id="btnApplyKpiCustomDate" class="btn btn-primary btn-sm" style="font-weight:700;">Apply Range</button>
+      </div>
+
+      <div style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">
+        Showing: <strong style="color:var(--color-primary);">${periodLabel}</strong> ${effectiveStart ? '(' + effectiveStart + ' → ' + effectiveEnd + ')' : ''}
+      </div>
+    </div>
+
     <!-- Top 4 Financial Accounting KPI Cards -->
     <div class="kpi-grid" style="margin-bottom:1.5rem;">
       <div class="kpi-card" style="padding:1.25rem;">
@@ -2128,11 +2208,11 @@ function renderFinanceView(container) {
           </div>
           <div class="form-group" style="margin-bottom:0.3rem;">
             <label style="font-weight:700; font-size:0.85rem;">From Date</label>
-            <input type="date" id="finStartFilter" class="form-control" value="${startDate}" />
+            <input type="date" id="finStartFilter" class="form-control" value="${effectiveStart}" />
           </div>
           <div class="form-group" style="margin-bottom:0.3rem;">
             <label style="font-weight:700; font-size:0.85rem;">To Date</label>
-            <input type="date" id="finEndFilter" class="form-control" value="${endDate}" />
+            <input type="date" id="finEndFilter" class="form-control" value="${effectiveEnd}" />
           </div>
         </div>
         ${isFilterActive ? `
