@@ -2641,7 +2641,7 @@ function openPayrollReviewModal(workerId) {
     });
     updateCalculatedWage();
 
-    equalShareBtn?.addEventListener('click', () => {
+    getEl('btnEqualShare')?.addEventListener('click', () => {
       const currentNuts = Number(nutInp.value) || 0;
       const halfNuts = Math.round(currentNuts / 2);
       nutInp.value = halfNuts;
