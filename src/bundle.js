@@ -827,28 +827,12 @@ function setupGlobalEvents() {
 }
 
 function updateLiveTickerBar() {
-  const tickerEl = getEl('liveMandiTickerBar');
-  if (!tickerEl) return;
-  const rates = store.getMarketRates();
-
-  tickerEl.innerHTML = `
-    <div class="ticker-content">
-      <div class="ticker-badge">
-        <span class="live-dot"></span>
-        <strong>LIVE MANDI</strong>
-      </div>
-      <div class="ticker-items">
-        <div class="ticker-item">
-          <span class="label">🥥 Pollachi Mandi Coconut Rate:</span>
-          <span class="val mono" style="font-size:1.05rem;">₹ 52.50 / kg</span>
-          <span class="sub" style="font-weight:700;">(₹ ${(rates.coconuts?.gradeA || 26.00).toFixed(2)} / nut)</span>
-        </div>
-      </div>
-      <div class="ticker-actions">
-        <button class="btn btn-sm btn-secondary" style="padding:0.25rem 0.5rem; background:rgba(255,255,255,0.2); border:none; color:#fff;" onclick="window.refreshLiveMandiRates()" title="Refresh Mandi Rates">🔄</button>
-        <button class="btn btn-sm btn-primary" style="padding:0.25rem 0.6rem; font-weight:700; background:#fbbf24; color:#000; border:none;" onclick="window.applyLiveRatesToStore()">⚡ Sync Rate</button>
-      </div>
-    </div>
+  const pillEl = getEl('liveRatePill');
+  if (!pillEl) return;
+  pillEl.innerHTML = `
+    <span class="live-dot"></span>
+    <span class="label">Live Rate:</span>
+    <span class="val mono">₹ 52.50 / kg</span>
   `;
 }
 

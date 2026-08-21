@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-w3smYuGf.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CxjfPnam.css">
+  <script type="module" crossorigin src="/assets/index-_km_3sgM.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-3uNShJZj.css">
 </head>
 <body class="light-theme">
   <div id="app" class="app-layout">
@@ -90,6 +90,11 @@
           <p id="currentTabSubtitle">Real-time coconut harvesting, dehusking & sales metrics</p>
         </div>
         <div class="header-actions">
+          <div id="liveRatePill" class="live-rate-pill" title="Pollachi Mandi Live Rate (Click to Refresh)" onclick="window.refreshLiveMandiRates()">
+            <span class="live-dot"></span>
+            <span class="label">Live Rate:</span>
+            <span class="val mono">₹ 52.50 / kg</span>
+          </div>
           <button id="langToggleBtn" class="btn btn-secondary" title="Switch Language / மொழி மாற்றுக" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);">
             🌐 <span id="langBtnText">தமிழ் (Tamil)</span>
           </button>
@@ -99,27 +104,6 @@
           </button>
         </div>
       </header>
-
-      <!-- Sticky Global Live Mandi Rates Small Tab (All Screens) -->
-      <div id="liveMandiTickerBar" class="live-mandi-ticker">
-        <div class="ticker-content">
-          <div class="ticker-badge">
-            <span class="live-dot"></span>
-            <strong>LIVE MANDI</strong>
-          </div>
-          <div class="ticker-items">
-            <div class="ticker-item">
-              <span class="label">🥥 Pollachi Mandi Coconut Rate:</span>
-              <span class="val mono" style="font-size:1.05rem;">₹ 52.50 / kg</span>
-              <span class="sub" style="font-weight:700;">(₹ 26.00 / nut)</span>
-            </div>
-          </div>
-          <div class="ticker-actions">
-            <button class="btn btn-sm btn-secondary" style="padding:0.25rem 0.5rem; background:rgba(255,255,255,0.2); border:none; color:#fff;" onclick="window.refreshLiveMandiRates()" title="Refresh Mandi Rates">🔄</button>
-            <button class="btn btn-sm btn-primary" style="padding:0.25rem 0.6rem; font-weight:700; background:#fbbf24; color:#000; border:none;" onclick="window.applyLiveRatesToStore()">⚡ Sync Rate</button>
-          </div>
-        </div>
-      </div>
 
       <div id="contentView" class="view-container">
         <div class="kpi-grid">
