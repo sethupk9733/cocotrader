@@ -438,27 +438,29 @@ class DataStore {
     const huskRevenue = this.getSales().filter(s => s.type === 'husk').reduce((sum, s) => sum + Number(s.totalRevenue || 0), 0);
     const totalRevenue = coconutRevenue + huskRevenue;
 
-    const totalClientPayouts = this.getLots().reduce((sum, l) => {
-      const bill = this.getBillByLotId(l.id);
-      if (bill) return sum + Number(bill.netPayable !== undefined ? bill.netPayable : bill.grossAmount);
-      const cli = this.getClientById(l.clientId);
-      const rate = cli ? (cli.ratePer1000Nuts || 12500) : 12500;
-      return sum + ((l.grossHarvestCount / 1000) * rate);
+    // Actual Client Settlement Outflows (from actual generated bills)
+    const totalClientPayouts = this.getClientBills().reduce((sum, bill) => {
+      const history = bill.paymentHistory && bill.paymentHistory.length > 0 ? bill.paymentHistory : [];
+      if (history.length > 0) {
+        return sum + history.reduce((s, p) => s + Number(p.amount || 0), 0);
+      }
+      return sum + Number(bill.amountPaid !== undefined ? bill.amountPaid : bill.netPayable || 0);
     }, 0);
 
+    // Actual Paid Labour Wages (from actual payroll history)
     let totalLabourCost = 0;
     const workers = this.getWorkers();
     workers.forEach(w => {
       if (w.payrollHistory && w.payrollHistory.length > 0) {
-        totalLabourCost += w.payrollHistory.reduce((s, p) => s + Number(p.netPaid !== undefined ? p.netPaid : p.grossWage || 0), 0);
+        totalLabourCost += w.payrollHistory.reduce((s, p) => {
+          const history = p.paymentHistory && p.paymentHistory.length > 0 ? p.paymentHistory : [];
+          if (history.length > 0) {
+            return s + history.reduce((hpSum, hp) => hpSum + Number(hp.amount || 0), 0);
+          }
+          return s + Number(p.amountPaid !== undefined ? p.amountPaid : p.netPaid || 0);
+        }, 0);
       }
     });
-
-    if (totalLabourCost === 0) {
-      totalLabourCost = this.getLots().reduce((sum, l) => {
-        return sum + this.calculateLabourBreakdown(l.grossHarvestCount).totalLabourWage;
-      }, 0);
-    }
 
     const totalExpenses = this.getExpenses().reduce((sum, e) => sum + Number(e.amount || 0), 0);
     const totalCost = totalClientPayouts + totalLabourCost + totalExpenses;
