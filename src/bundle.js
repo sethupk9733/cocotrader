@@ -289,7 +289,25 @@ class DataStore {
   getLots() { return this.data.harvestLots || defaultSeedData.harvestLots; }
   getInProcessLots() { return this.getLots().filter(l => l && l.status === 'in_process'); }
   getCompletedLots() { return this.getLots().filter(l => l && l.status === 'completed'); }
-  getLotById(id) { return this.getLots().find(l => l.id === id); }
+  getLotById(id) { return this.getLots().find(l => l && l.id === id); }
+
+  isLotCoconutSold(lotId) {
+    const sales = (this.data.sales || []).filter(s => s.type === 'coconut');
+    return sales.some(s => s.lotIds && s.lotIds.includes(lotId));
+  }
+
+  isLotHuskSold(lotId) {
+    const sales = (this.data.sales || []).filter(s => s.type === 'husk');
+    return sales.some(s => s.lotIds && s.lotIds.includes(lotId));
+  }
+
+  getUnsoldCoconutLots() {
+    return this.getLots().filter(l => l && !this.isLotCoconutSold(l.id));
+  }
+
+  getUnsoldHuskLots() {
+    return this.getLots().filter(l => l && !this.isLotHuskSold(l.id));
+  }
 
   addHarvestLot(lot, attendingWorkerIds = []) {
     lot.id = "lot_" + Date.now();
@@ -3702,7 +3720,7 @@ function openNewWorkerModal() {
 }
 
 function openNewCoconutSaleModal() {
-  const lots = store.getLots();
+  const lots = store.getUnsoldCoconutLots();
   const titleEl = getModalTitle();
   const bodyEl = getModalBody();
   if (titleEl) titleEl.textContent = getLang() === 'ta' ? "தேங்காய் விற்பனை பதிவு" : "Log Coconut Sale Delivery";
@@ -3728,14 +3746,18 @@ function openNewCoconutSaleModal() {
         </div>
 
         <div class="form-group">
-          <label>Associated Harvest Lots</label>
-          <div style="max-height:80px; overflow-y:auto; background:var(--bg-card-hover); padding:0.5rem; border-radius:4px;">
-            ${lots.map(l => `
-              <label style="display:flex; gap:0.5rem; margin-bottom:0.3rem;">
-                <input type="checkbox" name="saleLotCheck" value="${l.id}" />
-                <span>${l.lotNumber} (${l.grossHarvestCount} nuts)</span>
-              </label>
-            `).join('')}
+          <label style="font-weight:700; color:var(--color-primary);">Associated Harvest Lots (Available Unsold Lots)</label>
+          <div style="max-height:100px; overflow-y:auto; background:var(--bg-card-hover); padding:0.5rem; border-radius:4px;">
+            ${lots.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem; margin:0;">All harvest lots have already been sold for coconuts.</p>' : ''}
+            ${lots.map(l => {
+              const accepted = Math.max(0, l.grossHarvestCount - (l.badNutCount || 0));
+              return `
+                <label style="display:flex; gap:0.5rem; margin-bottom:0.3rem; cursor:pointer;">
+                  <input type="checkbox" name="saleLotCheck" value="${l.id}" />
+                  <span><strong>${l.lotNumber}</strong> (${accepted.toLocaleString()} billable nuts)</span>
+                </label>
+              `;
+            }).join('')}
           </div>
         </div>
 
@@ -3753,7 +3775,7 @@ function openNewCoconutSaleModal() {
         <div class="form-row">
           <div class="form-group">
             <label style="font-weight:700; color:var(--color-primary);">Total Nut Count (தேங்காய் எண்ணிக்கை)</label>
-            <input type="number" id="saleNutCount" class="form-control mono" value="5000" placeholder="e.g. 5000 nuts" required />
+            <input type="number" id="saleNutCount" class="form-control mono" value="0" placeholder="Select lot or type count" required />
           </div>
           <div class="form-group" id="grpWeightVal">
             <label id="lblWeightVal" style="font-weight:700; color:var(--color-primary);">Total Weight (in Tons)</label>
@@ -3819,6 +3841,27 @@ function openNewCoconutSaleModal() {
         `;
       }
     };
+
+    const updateNutCountFromLots = () => {
+      const checkedCbs = Array.from(document.querySelectorAll('input[name="saleLotCheck"]:checked'));
+      if (checkedCbs.length > 0) {
+        const totalNutsFromLots = checkedCbs.reduce((sum, cb) => {
+          const lotId = cb.value;
+          const lot = store.getLotById(lotId);
+          if (!lot) return sum;
+          const acceptedNuts = Math.max(0, lot.grossHarvestCount - (lot.badNutCount || 0));
+          return sum + acceptedNuts;
+        }, 0);
+        if (inpNutCount) {
+          inpNutCount.value = totalNutsFromLots;
+          updateCalculationsDisplay();
+        }
+      }
+    };
+
+    document.querySelectorAll('input[name="saleLotCheck"]').forEach(cb => {
+      cb.addEventListener('change', updateNutCountFromLots);
+    });
 
     basisSel?.addEventListener('change', () => {
       const val = basisSel.value;
@@ -3897,7 +3940,7 @@ function openNewCoconutSaleModal() {
 }
 
 function openNewHuskSaleModal() {
-  const lots = store.getLots();
+  const lots = store.getUnsoldHuskLots();
   const rates = store.getMarketRates().husks;
   const titleEl = getModalTitle();
   const bodyEl = getModalBody();
@@ -3914,14 +3957,18 @@ function openNewHuskSaleModal() {
         </div>
 
         <div class="form-group">
-          <label>Associated Harvest Lots</label>
+          <label style="font-weight:700; color:var(--color-accent);">Associated Harvest Lots (Available Unsold Husk Lots)</label>
           <div style="max-height:100px; overflow-y:auto; background:var(--bg-card-hover); padding:0.5rem; border-radius:4px;">
-            ${lots.map(l => `
-              <label style="display:flex; gap:0.5rem; margin-bottom:0.3rem;">
-                <input type="checkbox" name="huskLotCheck" value="${l.id}" />
-                <span>${l.lotNumber}</span>
-              </label>
-            `).join('')}
+            ${lots.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem; margin:0;">All harvest lots have already been sold for husks.</p>' : ''}
+            ${lots.map(l => {
+              const accepted = Math.max(0, l.grossHarvestCount - (l.badNutCount || 0));
+              return `
+                <label style="display:flex; gap:0.5rem; margin-bottom:0.3rem; cursor:pointer;">
+                  <input type="checkbox" name="huskLotCheck" value="${l.id}" />
+                  <span><strong>${l.lotNumber}</strong> (${accepted.toLocaleString()} husks)</span>
+                </label>
+              `;
+            }).join('')}
           </div>
         </div>
         <div class="form-row">
@@ -3937,7 +3984,7 @@ function openNewHuskSaleModal() {
         <div class="form-row">
           <div class="form-group">
             <label>Husk Count</label>
-            <input type="number" id="huskQty" class="form-control mono" value="6000" required />
+            <input type="number" id="huskQty" class="form-control mono" value="0" placeholder="Select lot or type count" required />
           </div>
           <div class="form-group">
             <label>Price per 1,000 Husks (₹)</label>
@@ -3950,6 +3997,26 @@ function openNewHuskSaleModal() {
         </div>
       </form>
     `;
+
+    const updateHuskQtyFromLots = () => {
+      const checkedCbs = Array.from(document.querySelectorAll('input[name="huskLotCheck"]:checked'));
+      if (checkedCbs.length > 0) {
+        const totalHusksFromLots = checkedCbs.reduce((sum, cb) => {
+          const lotId = cb.value;
+          const lot = store.getLotById(lotId);
+          if (!lot) return sum;
+          const acceptedNuts = Math.max(0, lot.grossHarvestCount - (lot.badNutCount || 0));
+          return sum + acceptedNuts;
+        }, 0);
+        const huskInp = getEl('huskQty');
+        if (huskInp) huskInp.value = totalHusksFromLots;
+      }
+    };
+
+    document.querySelectorAll('input[name="huskLotCheck"]').forEach(cb => {
+      cb.addEventListener('change', updateHuskQtyFromLots);
+    });
+
     getEl('newHuskSaleForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
       const q = Number(getEl('huskQty').value);
