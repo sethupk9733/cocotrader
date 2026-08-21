@@ -362,6 +362,30 @@ class DataStore {
     return (this.data.attendanceLogs || []).filter(a => a.lotId === lotId);
   }
 
+  getLotWagePaymentStatus(lotId) {
+    const attLogs = this.getAttendanceForLot(lotId);
+    if (!attLogs || attLogs.length === 0) return { status: 'no_labour', label: 'No Labour' };
+
+    const workers = this.getWorkers();
+    let paidWorkersCount = 0;
+
+    attLogs.forEach(att => {
+      const wrk = workers.find(w => w.id === att.workerId);
+      if (wrk && wrk.payrollHistory) {
+        const hasPaid = wrk.payrollHistory.some(p => p.lotIds && p.lotIds.includes(lotId));
+        if (hasPaid) paidWorkersCount++;
+      }
+    });
+
+    if (paidWorkersCount === attLogs.length) {
+      return { status: 'paid', label: '🟢 Wages Paid' };
+    } else if (paidWorkersCount > 0) {
+      return { status: 'partial', label: '🟡 Partial Wages' };
+    } else {
+      return { status: 'unpaid', label: '🔴 Wages Unpaid' };
+    }
+  }
+
   saveAttendance(lotId, attendanceArray) {
     if (!this.data.attendanceLogs) this.data.attendanceLogs = [];
     this.data.attendanceLogs = this.data.attendanceLogs.filter(a => a.lotId !== lotId);
@@ -1416,6 +1440,7 @@ function renderWagesView(container) {
               <th>Gross Count</th>
               <th>Net Accepted</th>
               <th>Labours Present</th>
+              <th>Wage Payment Status</th>
               <th style="text-align:right;">Edit Labour Contribution</th>
             </tr>
           </thead>
@@ -1423,11 +1448,13 @@ function renderWagesView(container) {
             ${(() => {
               const filteredLotIds = [...new Set(logs.map(a => a.lotId))];
               const filteredLots = filteredLotIds.map(id => store.getLotById(id)).filter(Boolean);
-              if (filteredLots.length === 0) return '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No harvest lot entries match current filters.</td></tr>';
+              if (filteredLots.length === 0) return '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No harvest lot entries match current filters.</td></tr>';
               return filteredLots.map(l => {
                 const client = store.getClientById(l.clientId);
                 const attLogs = store.getAttendanceForLot(l.id);
                 const accepted = l.grossHarvestCount - (l.badNutCount || 0);
+                const wageStatus = store.getLotWagePaymentStatus(l.id);
+
                 return `
                   <tr style="cursor:pointer;" onclick="if(!event.target.closest('button')) window.openManageLotLabourModal('${l.id}')">
                     <td>${l.harvestDate}</td>
@@ -1436,6 +1463,12 @@ function renderWagesView(container) {
                     <td class="mono">${l.grossHarvestCount.toLocaleString()} nuts</td>
                     <td class="mono" style="color:var(--color-primary); font-weight:700;">${accepted.toLocaleString()} nuts</td>
                     <td><span class="badge badge-role">${attLogs.length} Labours Present</span></td>
+                    <td>
+                      ${wageStatus.status === 'paid' ? '<span class="badge badge-paid" style="background:rgba(5,150,105,0.15); color:var(--color-primary); font-weight:700;">🟢 Wages Paid</span>' :
+                        (wageStatus.status === 'partial' ? '<span class="badge" style="background:rgba(245,158,11,0.15); color:var(--color-accent); font-weight:700;">🟡 Partial Wages</span>' :
+                        (wageStatus.status === 'unpaid' ? '<span class="badge badge-unpaid" style="background:rgba(239,68,68,0.15); color:var(--color-danger); font-weight:700;">🔴 Wages Unpaid</span>' :
+                        '<span class="badge" style="background:var(--bg-card-hover); color:var(--text-muted);">No Labour</span>'))}
+                    </td>
                     <td style="text-align:right;">
                       <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="event.stopPropagation(); window.openManageLotLabourModal('${l.id}')">
                         👷 Edit Labour Contribution
