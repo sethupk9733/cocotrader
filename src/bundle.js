@@ -545,6 +545,7 @@ const translations = {
       workers: { title: "👷 Labour Payroll & Wages (ஆள் கூலி)", sub: "Weekly Saturday payroll, job-based dehusking & issue quick cash" },
       sales: { title: "💰 Sales & Operational Cash (விற்பனை)", sub: "Record coconut/husk sales deliveries to buyers & track diesel expenses" },
       finance: { title: "🏛️ Finance & Accounting Ledger (நிதி ஏடு)", sub: "Complete double-entry accounting ledger tracking all income inflows, client bill payouts, labour wages & expenses" },
+      analytics: { title: "📊 Business Analytics & Performance Dashboard (பகுப்பாய்வு)", sub: "Comprehensive real-time analytics of sales revenue, net profit margin, farm yields & labour productivity" },
       rates: { title: "⚙️ Market Selling Rates & Wage Config", sub: "Set coconut prices, coir husk rates & labour piece-rate structure" }
     },
     btnNewLot: "+ New Harvest",
@@ -564,6 +565,7 @@ const translations = {
       workers: { title: "👷 தொழிலாளர்கள் கூலி கணக்கு", sub: "வாராந்திர கூலி பட்டுவாடா மற்றும் மட்டை உரிப்பவர் கூலி" },
       sales: { title: "💰 தேங்காய் விற்பனை & செலவுகள்", sub: "வியாபாரிகளுக்கு விற்பனை மற்றும் வண்டி டீசல் செலவுகள்" },
       finance: { title: "🏛️ நிதி & கணக்கு வரவு செலவு ஏடு", sub: "அனைத்து விற்பனை வரவு, தோட்ட முதலாளி பட்டுவாடா, ஆள் கூலி மற்றும் தொழில் செலவுகள் அடங்கிய கணக்கு ஏடு" },
+      analytics: { title: "📊 வியாபார பகுப்பாய்வு & செயல்திறன் டாஷ்போர்டு", sub: "விற்பனை வருவாய், நிகர லாபம், தோட்ட விளைச்சல் மற்றும் தொழிலாளர் உற்பத்தி பகுப்பாய்வு" },
       rates: { title: "⚙️ சந்தை விலை & கூலி நிர்ணயம்", sub: "தேங்காய், மட்டை சந்தை விலை மற்றும் கூலி விவரம்" }
     },
     btnNewLot: "+ புதிய அறுவடை",
@@ -895,6 +897,7 @@ function renderView(tab) {
       case 'stock': renderStockView(container); break;
       case 'sales': renderSalesView(container); break;
       case 'finance': renderFinanceView(container); break;
+      case 'analytics': renderAnalyticsView(container); break;
       case 'rates': renderRatesView(container); break;
       default: renderDashboard(container);
     }
