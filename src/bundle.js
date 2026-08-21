@@ -1161,8 +1161,9 @@ function renderDashboard(container) {
                   <td class="mono" style="font-weight:700; font-size:1.15rem; color:var(--color-primary);">${l.grossHarvestCount.toLocaleString()} nuts</td>
                   <td>
                     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                      <button class="btn btn-secondary btn-sm" style="font-weight:700;" onclick="window.openLotDetailsModal('${l.id}')">👁️ View Lot Details</button>
-                      <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="window.openGenerateClientBillModal('${l.id}')">🧾 Make Bill</button>
+                      <button class="btn btn-secondary btn-sm" style="font-weight:700;" onclick="event.stopPropagation(); window.openLotDetailsModal('${l.id}')">👁️ View Lot Details</button>
+                      <button class="btn btn-secondary btn-sm" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="event.stopPropagation(); window.openEditLotNutSplitModal('${l.id}')">✏️ Edit Nut Split</button>
+                      <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="event.stopPropagation(); window.openGenerateClientBillModal('${l.id}')">🧾 Make Bill</button>
                     </div>
                   </td>
                 </tr>
@@ -3323,7 +3324,8 @@ function openLotDetailsModal(lotId) {
         ` : `<p style="color:var(--color-accent); font-weight:700; margin:0;">Not Billed Yet. Click "Make Bill" to generate farm invoice.</p>`}
       </div>
 
-      <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap;">
+        <button type="button" class="btn btn-secondary" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="window.openEditLotNutSplitModal('${lot.id}')">✏️ Edit Custom Nut Split</button>
         <button type="button" class="btn btn-secondary" onclick="window.updateStageModal('${lot.id}')">Update Stage</button>
         ${bill ? `
           <button type="button" class="btn btn-primary" onclick="window.printClientBill('${bill.id}')">Print Invoice Bill</button>
