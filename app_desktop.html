@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-BXEeNku-.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CVI4Zyta.css">
+  <script type="module" crossorigin src="/assets/index-BC76jBaV.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CxjfPnam.css">
 </head>
 <body class="light-theme">
   <div id="app" class="app-layout">
@@ -99,6 +99,35 @@
           </button>
         </div>
       </header>
+
+      <!-- Sticky Global Live Mandi Rates Small Tab (All Screens) -->
+      <div id="liveMandiTickerBar" class="live-mandi-ticker">
+        <div class="ticker-content">
+          <div class="ticker-badge">
+            <span class="live-dot"></span>
+            <strong>LIVE MANDI</strong>
+          </div>
+          <div class="ticker-items">
+            <div class="ticker-item">
+              <span class="label">🥥 Pollachi Mandi:</span>
+              <span class="val mono">₹ 52.50 / kg</span>
+              <span class="sub">(₹ 26.00 / nut)</span>
+            </div>
+            <div class="ticker-item">
+              <span class="label">🌾 Raw Coir Husk:</span>
+              <span class="val mono">₹ 2,400 / 1k husks</span>
+            </div>
+            <div class="ticker-item">
+              <span class="label">🌴 Kangayam Copra:</span>
+              <span class="val mono">₹ 115.00 / kg</span>
+            </div>
+          </div>
+          <div class="ticker-actions">
+            <button class="btn btn-sm btn-secondary" style="padding:0.25rem 0.5rem; background:rgba(255,255,255,0.2); border:none; color:#fff;" onclick="window.refreshLiveMandiRates()" title="Refresh Mandi Rates">🔄</button>
+            <button class="btn btn-sm btn-primary" style="padding:0.25rem 0.6rem; font-weight:700; background:#fbbf24; color:#000; border:none;" onclick="window.applyLiveRatesToStore()">⚡ Sync Rates</button>
+          </div>
+        </div>
+      </div>
 
       <div id="contentView" class="view-container">
         <div class="kpi-grid">

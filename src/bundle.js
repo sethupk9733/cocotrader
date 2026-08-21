@@ -826,7 +826,42 @@ function setupGlobalEvents() {
   });
 }
 
+function updateLiveTickerBar() {
+  const tickerEl = getEl('liveMandiTickerBar');
+  if (!tickerEl) return;
+  const rates = store.getMarketRates();
+
+  tickerEl.innerHTML = `
+    <div class="ticker-content">
+      <div class="ticker-badge">
+        <span class="live-dot"></span>
+        <strong>LIVE MANDI</strong>
+      </div>
+      <div class="ticker-items">
+        <div class="ticker-item">
+          <span class="label">🥥 Pollachi Mandi:</span>
+          <span class="val mono">₹ 52.50 / kg</span>
+          <span class="sub">(₹ ${(rates.coconuts?.gradeA || 26.00).toFixed(2)}/nut)</span>
+        </div>
+        <div class="ticker-item">
+          <span class="label">🌾 Raw Coir Husk:</span>
+          <span class="val mono">₹ ${(rates.husks?.rawHuskPer1000 || 2400).toLocaleString()} / 1k husks</span>
+        </div>
+        <div class="ticker-item">
+          <span class="label">🌴 Kangayam Copra:</span>
+          <span class="val mono">₹ 115.00 / kg</span>
+        </div>
+      </div>
+      <div class="ticker-actions">
+        <button class="btn btn-sm btn-secondary" style="padding:0.25rem 0.5rem; background:rgba(255,255,255,0.2); border:none; color:#fff;" onclick="window.refreshLiveMandiRates()" title="Refresh Mandi Rates">🔄</button>
+        <button class="btn btn-sm btn-primary" style="padding:0.25rem 0.6rem; font-weight:700; background:#fbbf24; color:#000; border:none;" onclick="window.applyLiveRatesToStore()">⚡ Sync Rates</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderView(tab) {
+  updateLiveTickerBar();
   const container = getViewContainer();
   if (!container) return;
 

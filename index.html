@@ -99,6 +99,35 @@
         </div>
       </header>
 
+      <!-- Sticky Global Live Mandi Rates Small Tab (All Screens) -->
+      <div id="liveMandiTickerBar" class="live-mandi-ticker">
+        <div class="ticker-content">
+          <div class="ticker-badge">
+            <span class="live-dot"></span>
+            <strong>LIVE MANDI</strong>
+          </div>
+          <div class="ticker-items">
+            <div class="ticker-item">
+              <span class="label">🥥 Pollachi Mandi:</span>
+              <span class="val mono">₹ 52.50 / kg</span>
+              <span class="sub">(₹ 26.00 / nut)</span>
+            </div>
+            <div class="ticker-item">
+              <span class="label">🌾 Raw Coir Husk:</span>
+              <span class="val mono">₹ 2,400 / 1k husks</span>
+            </div>
+            <div class="ticker-item">
+              <span class="label">🌴 Kangayam Copra:</span>
+              <span class="val mono">₹ 115.00 / kg</span>
+            </div>
+          </div>
+          <div class="ticker-actions">
+            <button class="btn btn-sm btn-secondary" style="padding:0.25rem 0.5rem; background:rgba(255,255,255,0.2); border:none; color:#fff;" onclick="window.refreshLiveMandiRates()" title="Refresh Mandi Rates">🔄</button>
+            <button class="btn btn-sm btn-primary" style="padding:0.25rem 0.6rem; font-weight:700; background:#fbbf24; color:#000; border:none;" onclick="window.applyLiveRatesToStore()">⚡ Sync Rates</button>
+          </div>
+        </div>
+      </div>
+
       <div id="contentView" class="view-container">
         <div class="kpi-grid">
           <div class="kpi-card">
