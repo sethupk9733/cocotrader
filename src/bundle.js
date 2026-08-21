@@ -1416,7 +1416,7 @@ function renderWagesView(container) {
               <th>Gross Count</th>
               <th>Net Accepted</th>
               <th>Labours Present</th>
-              <th style="text-align:right;">Add / Manage Labour</th>
+              <th style="text-align:right;">Edit Labour Contribution</th>
             </tr>
           </thead>
           <tbody>
@@ -1438,7 +1438,7 @@ function renderWagesView(container) {
                     <td><span class="badge badge-role">${attLogs.length} Labours Present</span></td>
                     <td style="text-align:right;">
                       <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="event.stopPropagation(); window.openManageLotLabourModal('${l.id}')">
-                        👷 Add / Manage Labour
+                        👷 Edit Labour Contribution
                       </button>
                     </td>
                   </tr>
@@ -2885,7 +2885,7 @@ function openManageLotLabourModal(lotId) {
 
   const titleEl = getModalTitle();
   const bodyEl = getModalBody();
-  if (titleEl) titleEl.textContent = `👷 Add & Manage Labours: ${lot.lotNumber}`;
+  if (titleEl) titleEl.textContent = `👷 Edit Labour Contribution: ${lot.lotNumber}`;
 
   if (bodyEl) {
     bodyEl.innerHTML = `
