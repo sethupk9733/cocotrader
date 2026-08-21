@@ -2041,9 +2041,11 @@ function getFinanceDatesForPreset(preset, customStart = '', customEnd = '') {
     end = lastDay.toISOString().slice(0, 10);
     label = `Annual (${year})`;
   } else if (preset === 'custom') {
-    start = customStart;
-    end = customEnd;
-    label = customStart && customEnd ? `Custom Range (${customStart} to ${customEnd})` : 'Custom Range';
+    const defaultStart = new Date(year, month, 1).toISOString().slice(0, 10);
+    const defaultEnd = now.toISOString().slice(0, 10);
+    start = customStart || defaultStart;
+    end = customEnd || defaultEnd;
+    label = `Custom Range (${start} to ${end})`;
   } else {
     preset = 'all';
     start = '';
@@ -2109,15 +2111,15 @@ function renderFinanceView(container) {
         </select>
       </div>
 
-      <div id="finCustomDateBox" style="display:${periodPreset === 'custom' ? 'flex' : 'none'}; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-        <input type="date" id="finKpiStartDate" class="form-control" value="${effectiveStart}" style="width:135px;" />
-        <span style="color:var(--text-muted); font-size:0.85rem;">to</span>
-        <input type="date" id="finKpiEndDate" class="form-control" value="${effectiveEnd}" style="width:135px;" />
-        <button id="btnApplyKpiCustomDate" class="btn btn-primary btn-sm" style="font-weight:700;">Apply Range</button>
+      <div id="finCustomDateBox" style="display:${periodPreset === 'custom' ? 'flex' : 'none'}; align-items:center; gap:0.5rem; flex-wrap:wrap; background:var(--bg-card); padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--color-primary);">
+        <span style="font-weight:700; font-size:0.85rem; color:var(--color-primary);">From:</span>
+        <input type="date" id="finKpiStartDate" class="form-control" value="${effectiveStart}" style="width:140px; font-weight:700;" />
+        <span style="font-weight:700; font-size:0.85rem; color:var(--color-primary);">To:</span>
+        <input type="date" id="finKpiEndDate" class="form-control" value="${effectiveEnd}" style="width:140px; font-weight:700;" />
       </div>
 
       <div style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">
-        Showing: <strong style="color:var(--color-primary);">${periodLabel}</strong> ${effectiveStart ? '(' + effectiveStart + ' → ' + effectiveEnd + ')' : ''}
+        Showing: <strong style="color:var(--color-primary);">${periodLabel}</strong>
       </div>
     </div>
 
@@ -2257,6 +2259,36 @@ function renderFinanceView(container) {
       </div>
     </div>
   `;
+
+  getEl('finPeriodPresetSelect')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    window.financeFilter.periodPreset = val;
+    if (val !== 'custom') {
+      const dates = getFinanceDatesForPreset(val);
+      window.financeFilter.startDate = dates.start;
+      window.financeFilter.endDate = dates.end;
+    } else {
+      if (!window.financeFilter.startDate) {
+        window.financeFilter.startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+      }
+      if (!window.financeFilter.endDate) {
+        window.financeFilter.endDate = new Date().toISOString().slice(0, 10);
+      }
+    }
+    renderFinanceView(container);
+  });
+
+  getEl('finKpiStartDate')?.addEventListener('change', (e) => {
+    window.financeFilter.periodPreset = 'custom';
+    window.financeFilter.startDate = e.target.value;
+    renderFinanceView(container);
+  });
+
+  getEl('finKpiEndDate')?.addEventListener('change', (e) => {
+    window.financeFilter.periodPreset = 'custom';
+    window.financeFilter.endDate = e.target.value;
+    renderFinanceView(container);
+  });
 
   getEl('btnToggleFinanceFilter')?.addEventListener('click', () => {
     window.showFinanceFilterPanel = !window.showFinanceFilterPanel;
