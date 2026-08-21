@@ -4082,6 +4082,7 @@ function openGenerateClientBillModal(lotId) {
             <div class="form-group">
               <label style="color:var(--color-primary); font-weight:700;">1. Good Coconuts Count (நல்ல தேங்காய்)</label>
               <input type="number" id="billGoodCount" class="form-control mono" value="${initialGoodCount}" style="font-weight:700;" required />
+              <small style="color:var(--text-muted);">Auto-calculated: ${lot.grossHarvestCount.toLocaleString()} gross nuts (-) Small (-) Bad nuts</small>
             </div>
             <div class="form-group">
               <label style="color:var(--color-primary); font-weight:700;">Rate / Piece (₹)</label>
@@ -4248,6 +4249,16 @@ function openGenerateClientBillModal(lotId) {
         `;
       }
     };
+
+    const updateGoodFromSubtractions = () => {
+      const smallQty = Number(smallQtyInp.value) || 0;
+      const badQty = Number(badQtyInp.value) || 0;
+      const calcGood = Math.max(0, lot.grossHarvestCount - smallQty - badQty);
+      if (goodQtyInp) goodQtyInp.value = calcGood;
+    };
+
+    smallQtyInp?.addEventListener('input', updateGoodFromSubtractions);
+    badQtyInp?.addEventListener('input', updateGoodFromSubtractions);
 
     [goodQtyInp, goodRateInp, smallQtyInp, smallRateInp, badQtyInp, badRateInp, qcInp, transInp, paidNowInp].forEach(inp => inp?.addEventListener('input', updateBillCalc));
     pmtTypeSel?.addEventListener('change', () => {
