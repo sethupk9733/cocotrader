@@ -3002,9 +3002,7 @@ function openManageLotLabourModal(lotId) {
         if (nutInp) {
           if (cb.checked) {
             nutInp.disabled = false;
-            if (!nutInp.value || Number(nutInp.value) === 0) {
-              nutInp.value = autoShare;
-            }
+            nutInp.value = autoShare;
           } else {
             nutInp.disabled = true;
             nutInp.value = 0;
