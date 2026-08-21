@@ -4869,4 +4869,6 @@ window.exportLedgerCSV = exportLedgerCSV;
 window.exportDataJSON = exportDataJSON;
 window.resetAppDatabase = resetAppDatabase;
 window.clearFinanceFilters = clearFinanceFilters;
+window.toggleTheme = toggleTheme;
+window.toggleLanguage = toggleLanguage;
 window.switchTab = switchTab;
