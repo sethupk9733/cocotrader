@@ -2410,6 +2410,12 @@ function renderAnalyticsView(container) {
     const netNuts = grossNuts - badNuts;
     const avgYield = cycles > 0 ? Math.round(grossNuts / cycles) : 0;
 
+    const treeCount = Number(c.treeCount || 0);
+    const areaAcres = Number(c.areaSizeAcres || 0);
+
+    const yieldPerTree = treeCount > 0 && cycles > 0 ? (avgYield / treeCount).toFixed(1) : (treeCount > 0 ? (grossNuts / treeCount).toFixed(1) : '-');
+    const yieldPerAcre = areaAcres > 0 && cycles > 0 ? Math.round(avgYield / areaAcres) : (areaAcres > 0 ? Math.round(grossNuts / areaAcres) : '-');
+
     const cBills = store.getClientBills().filter(b => b.clientId === c.id);
     const totalBilled = cBills.reduce((sum, b) => sum + Number(b.netPayable || 0), 0);
     const totalPaid = cBills.reduce((sum, b) => sum + Number(b.amountPaid || 0), 0);
@@ -2418,10 +2424,14 @@ function renderAnalyticsView(container) {
       id: c.id,
       name: c.name,
       location: c.location,
+      treeCount,
+      areaAcres,
       cycles,
       grossNuts,
       netNuts,
       avgYield,
+      yieldPerTree,
+      yieldPerAcre,
       totalBilled,
       totalPaid,
       pendingBalance: totalBilled - totalPaid
@@ -2597,24 +2607,31 @@ function renderAnalyticsView(container) {
             <tr>
               <th>Rank</th>
               <th>Farm Owner / Client</th>
-              <th>Location</th>
+              <th>Location & Specs</th>
               <th style="text-align:center;">Harvest Cycles</th>
               <th style="text-align:right;">Total Gross Harvest</th>
               <th style="text-align:right;">Avg Yield / Cycle</th>
+              <th style="text-align:right;">Yield / Tree</th>
+              <th style="text-align:right;">Yield / Acre</th>
               <th style="text-align:right;">Total Billed</th>
               <th style="text-align:right;">Pending Balance</th>
             </tr>
           </thead>
           <tbody>
-            ${farmPerformanceList.length === 0 ? '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No farm owner performance data available.</td></tr>' : ''}
+            ${farmPerformanceList.length === 0 ? '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No farm owner performance data available.</td></tr>' : ''}
             ${farmPerformanceList.map((c, idx) => `
               <tr>
                 <td><strong style="font-size:1.05rem; color:var(--color-primary);">#${idx + 1}</strong></td>
                 <td><strong>${c.name}</strong></td>
-                <td><small style="color:var(--text-muted);">${c.location}</small></td>
+                <td>
+                  <small style="color:var(--text-muted);">${c.location}</small><br>
+                  <small style="color:var(--color-primary); font-weight:700;">${c.areaAcres ? c.areaAcres + ' Acres' : ''} ${c.treeCount ? '| ' + c.treeCount + ' Trees' : ''}</small>
+                </td>
                 <td style="text-align:center;"><span class="badge badge-role">${c.cycles} Cycles</span></td>
                 <td class="mono" style="text-align:right; font-weight:700; font-size:1.05rem;">${c.grossNuts.toLocaleString()} nuts</td>
                 <td class="mono" style="text-align:right; color:var(--color-primary); font-weight:700;">${c.avgYield.toLocaleString()} nuts</td>
+                <td class="mono" style="text-align:right; color:var(--color-accent); font-weight:700;">${c.yieldPerTree !== '-' ? c.yieldPerTree + ' nuts' : '-'}</td>
+                <td class="mono" style="text-align:right; color:var(--color-primary); font-weight:700;">${c.yieldPerAcre !== '-' ? c.yieldPerAcre.toLocaleString() + ' nuts' : '-'}</td>
                 <td class="mono" style="text-align:right;">${currency} ${c.totalBilled.toLocaleString()}</td>
                 <td class="mono" style="text-align:right; font-weight:700; ${c.pendingBalance > 0 ? 'color:var(--color-danger);' : 'color:var(--color-primary);'}">
                   ${currency} ${c.pendingBalance.toLocaleString()}
