@@ -516,7 +516,6 @@ class DataStore {
     const seq = Math.floor(100 + Math.random() * 900);
     lot.lotNumber = `${farmName}-LOT-${seq}`;
     lot.status = "in_process";
-    lot.processStage = "Harvesting at Farm";
     lot.badNutCount = Number(lot.badNutCount || 0);
     lot.acceptedNutCount = lot.grossHarvestCount - lot.badNutCount;
 
@@ -3282,7 +3281,7 @@ function openLotDetailsModal(lotId) {
             <p style="font-size:0.85rem; color:var(--text-muted);">Harvest Date: <strong>${lot.harvestDate}</strong></p>
           </div>
           <div>
-            <span class="badge badge-dehusking" style="font-size:1rem; padding:0.5rem 1rem;">${lot.processStage || 'In Process'}</span>
+            <span class="badge ${lot.status === 'completed' ? 'badge-completed' : 'badge-transit'}" style="font-size:0.95rem; padding:0.4rem 0.8rem;">${lot.status === 'completed' ? '✅ Billed & Settled' : '🌴 Active Harvest Lot'}</span>
           </div>
         </div>
       </div>
@@ -3326,7 +3325,6 @@ function openLotDetailsModal(lotId) {
 
       <div style="display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap;">
         <button type="button" class="btn btn-secondary" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="window.openEditLotNutSplitModal('${lot.id}')">✏️ Edit Custom Nut Split</button>
-        <button type="button" class="btn btn-secondary" onclick="window.updateStageModal('${lot.id}')">Update Stage</button>
         ${bill ? `
           <button type="button" class="btn btn-primary" onclick="window.printClientBill('${bill.id}')">Print Invoice Bill</button>
         ` : `
@@ -3588,19 +3586,9 @@ function openNewLotModal() {
             <input type="number" id="lotGrossCount" class="form-control mono" placeholder="e.g. 7500" required />
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Bad / Damaged Nut Count</label>
-            <input type="number" id="lotBadCount" class="form-control mono" value="0" />
-          </div>
-          <div class="form-group">
-            <label>Initial Stage</label>
-            <select id="lotStage" class="form-control">
-              <option value="Harvesting at Farm" selected>1. Harvesting at Farm</option>
-              <option value="In Transit to Yard">2. In Transit to Yard</option>
-              <option value="Yard Dehusking">3. Yard Dehusking</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label>Bad / Damaged Nut Count</label>
+          <input type="number" id="lotBadCount" class="form-control mono" value="0" />
         </div>
         <div class="form-group" style="background:var(--bg-card-hover); padding:1rem; border-radius:var(--radius-md); margin-top:1rem;">
           <label style="color:var(--color-primary); font-weight:700;">Mark Worker Attendance for this Lot</label>
@@ -3631,7 +3619,6 @@ function openNewLotModal() {
         harvestDate: getEl('lotDate').value,
         grossHarvestCount: Number(getEl('lotGrossCount').value),
         badNutCount: Number(getEl('lotBadCount').value) || 0,
-        processStage: getEl('lotStage').value,
         notes: ''
       }, checkedWorkers);
       closeModal();
@@ -4543,8 +4530,8 @@ function openGenerateClientBillModal(lotId) {
       });
 
       closeModal();
-      printClientBill(bill.id);
       renderView(currentTab);
+      openBillReviewModal(bill.id);
     });
   }
   openModal();
@@ -4894,6 +4881,132 @@ function printWorkerPayslip(workerId, payoutId) {
   window.print();
 }
 
+function openBillReviewModal(billId) {
+  const bill = store.getClientBills().find(b => b.id === billId) || store.getClientBills()[0];
+  if (!bill) {
+    alert("Invoice bill not found.");
+    return;
+  }
+
+  const client = store.getClientById(bill.clientId);
+  const lot = store.getLotById(bill.lotId);
+  const currency = store.data.traderInfo.currency;
+
+  const goodQty = bill.goodCount !== undefined ? bill.goodCount : bill.acceptedCount;
+  const goodRate = bill.goodRate !== undefined ? bill.goodRate : (bill.ratePerPiece || 12.50);
+  const goodAmt = bill.goodAmount !== undefined ? bill.goodAmount : (goodQty * goodRate);
+
+  const smallQty = bill.smallCount || 0;
+  const smallRate = bill.smallRate || 0;
+  const smallAmt = bill.smallAmount || 0;
+
+  const badQty = bill.badNutCount || 0;
+  const badRate = bill.badRate || 0;
+  const badAmt = bill.badAmount || 0;
+
+  const titleEl = getModalTitle();
+  const bodyEl = getModalBody();
+  if (titleEl) titleEl.textContent = `🧾 Settlement Invoice Generated: ${bill.billNumber}`;
+
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      <div style="background:var(--bg-card-hover); padding:1rem 1.25rem; border-radius:var(--radius-md); border-left:4px solid var(--color-primary); margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+          <h3 style="margin:0; font-size:1.15rem;">Invoice No: <span class="mono">${bill.billNumber}</span></h3>
+          <p style="font-size:0.9rem; margin-top:0.25rem; color:var(--text-muted);">
+            Farm Owner: <strong>${client ? client.name : 'Unknown'}</strong> (${client ? client.location : ''})<br>
+            Harvest Lot: <strong>${lot ? lot.lotNumber : '-'}</strong> | Date: <strong>${bill.billDate}</strong>
+          </p>
+        </div>
+        <div style="text-align:right;">
+          <span class="badge ${bill.paymentStatus === 'paid' ? 'badge-completed' : 'badge-transit'}" style="font-size:0.95rem; padding:0.4rem 0.8rem;">
+            ${bill.paymentStatus === 'paid' ? '✅ BILLED & PAID IN FULL' : `⚠️ PARTIAL (Bal: ₹ ${(bill.pendingBalance || 0).toLocaleString()})`}
+          </span>
+        </div>
+      </div>
+
+      <div class="card-box" style="margin-bottom:1.25rem; padding:0.75rem;">
+        <h4 style="margin:0 0 0.75rem 0; color:var(--color-primary); font-size:1.05rem;">🥥 Invoice Item Breakdown</h4>
+        <div class="table-responsive">
+          <table class="data-table" style="font-size:0.95rem;">
+            <thead>
+              <tr>
+                <th>Item Particulars</th>
+                <th>Quantity</th>
+                <th>Rate / Piece</th>
+                <th>Subtotal Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Good / Grade A Coconuts</strong></td>
+                <td class="mono">${goodQty.toLocaleString()} nuts</td>
+                <td class="mono">₹ ${goodRate.toFixed(2)}</td>
+                <td class="mono" style="font-weight:700;">₹ ${goodAmt.toLocaleString()}</td>
+              </tr>
+              ${smallQty > 0 ? `
+                <tr>
+                  <td><strong>Small / Sipai Coconuts</strong></td>
+                  <td class="mono">${smallQty.toLocaleString()} nuts</td>
+                  <td class="mono">₹ ${smallRate.toFixed(2)}</td>
+                  <td class="mono" style="font-weight:700;">₹ ${smallAmt.toLocaleString()}</td>
+                </tr>
+              ` : ''}
+              ${badQty > 0 ? `
+                <tr>
+                  <td><strong>Bad / Damaged Nuts</strong></td>
+                  <td class="mono">${badQty.toLocaleString()} nuts</td>
+                  <td class="mono">₹ ${badRate.toFixed(2)}</td>
+                  <td class="mono" style="font-weight:700;">₹ ${badAmt.toLocaleString()}</td>
+                </tr>
+              ` : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="calc-summary-box" style="margin-bottom:1.5rem;">
+        <div class="calc-summary-row" style="font-weight:700;">
+          <span>Gross Harvest Value (${bill.grossCount.toLocaleString()} nuts):</span>
+          <span class="mono">₹ ${bill.grossAmount.toLocaleString()}</span>
+        </div>
+        ${(bill.quickCashDeduction || 0) > 0 ? `
+          <div class="calc-summary-row" style="color:var(--color-accent);">
+            <span>(-) Quick Cash Advance Deducted:</span>
+            <span class="mono">₹ ${bill.quickCashDeduction.toLocaleString()}</span>
+          </div>
+        ` : ''}
+        ${(bill.transportDeduction || 0) > 0 ? `
+          <div class="calc-summary-row" style="color:var(--color-danger);">
+            <span>(-) Transport / Loading Deducted:</span>
+            <span class="mono">₹ ${bill.transportDeduction.toLocaleString()}</span>
+          </div>
+        ` : ''}
+        <div class="calc-summary-row total" style="color:var(--color-primary); font-size:1.15rem;">
+          <span>NET PAYABLE INVOICE AMOUNT:</span>
+          <span class="mono">₹ ${bill.netPayable.toLocaleString()}</span>
+        </div>
+        <div class="calc-summary-row" style="font-weight:700; color:var(--color-primary);">
+          <span>Amount Paid Now (${bill.paymentMethod || 'Cash'}):</span>
+          <span class="mono">₹ ${(bill.amountPaid !== undefined ? bill.amountPaid : bill.netPayable).toLocaleString()}</span>
+        </div>
+        ${(bill.pendingBalance || 0) > 0 ? `
+          <div class="calc-summary-row" style="font-weight:800; color:var(--color-accent); font-size:1.1rem; background:rgba(245, 158, 11, 0.15); padding:0.4rem; border-radius:4px; margin-top:0.3rem;">
+            <span>REMAINING UNPAID BALANCE:</span>
+            <span class="mono">₹ ${bill.pendingBalance.toLocaleString()}</span>
+          </div>
+        ` : ''}
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap;">
+        <button type="button" class="btn btn-secondary" onclick="window.closeModal()">Close</button>
+        <button type="button" class="btn btn-primary" style="font-weight:700;" onclick="window.printClientBill('${bill.id}')">🖨️ Print Invoice Bill</button>
+      </div>
+    `;
+  }
+  openModal();
+}
+
 function printClientBill(billId) {
   const bill = store.getClientBills().find(b => b.id === billId) || store.getClientBills()[0];
   if (!bill) return;
@@ -5027,6 +5140,7 @@ window.openNewHuskSaleModal = openNewHuskSaleModal;
 window.openNewExpenseModal = openNewExpenseModal;
 window.openMakeBillModal = openGenerateClientBillModal;
 window.openGenerateClientBillModal = openGenerateClientBillModal;
+window.openBillReviewModal = openBillReviewModal;
 window.openLotDetailsModal = openLotDetailsModal;
 window.openLotLaboursModal = openLotLaboursModal;
 window.openEditLotNutSplitModal = openEditLotNutSplitModal;
