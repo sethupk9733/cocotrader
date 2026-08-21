@@ -1838,54 +1838,34 @@ function getAccountingLedgerItems(startDate, endDate, typeFilter, methodFilter) 
     });
   });
 
-  // 2. Client Farm Settlement Bills Payouts
-  const lots = store.getLots();
-  lots.forEach(l => {
-    const bill = store.getBillByLotId(l.id);
-    const client = store.getClientById(l.clientId);
-    if (bill) {
-      const history = bill.paymentHistory && bill.paymentHistory.length > 0 ? bill.paymentHistory : [
-        { id: 'bill_pmt_' + bill.id, date: bill.billDate, amount: bill.amountPaid !== undefined ? bill.amountPaid : bill.netPayable, method: bill.paymentMethod || 'UPI', notes: 'Bill settlement' }
-      ];
+  // 2. Client Farm Settlement Bills Payouts (Only generated & saved bills)
+  const clientBills = store.getClientBills();
+  clientBills.forEach(bill => {
+    const client = store.getClientById(bill.clientId);
+    const history = bill.paymentHistory && bill.paymentHistory.length > 0 ? bill.paymentHistory : [
+      { id: 'bill_pmt_' + bill.id, date: bill.billDate, amount: bill.amountPaid !== undefined ? bill.amountPaid : bill.netPayable, method: bill.paymentMethod || 'UPI', notes: 'Bill settlement' }
+    ];
 
-      history.forEach(pmt => {
-        items.push({
-          id: pmt.id || ('pmt_' + Math.random()),
-          date: pmt.date || bill.billDate,
-          type: 'client_payout',
-          typeLabel: '👨‍🌾 Client Bill Payment',
-          typeBadge: 'badge-transit',
-          partyName: client ? client.name : 'Farm Owner',
-          particulars: `Farm Settlement Bill (${bill.billNumber}) ${pmt.notes ? '- ' + pmt.notes : ''}`,
-          credit: 0,
-          debit: pmt.amount || bill.netPayable || 0,
-          method: pmt.method || bill.paymentMethod || 'UPI'
-        });
-      });
-    } else {
-      const rate = client ? (client.ratePer1000Nuts || 12500) : 12500;
-      const estimatedCost = (l.grossHarvestCount / 1000) * rate;
+    history.forEach(pmt => {
       items.push({
-        id: 'unbilled_' + l.id,
-        date: l.harvestDate,
+        id: pmt.id || ('pmt_' + Math.random()),
+        date: pmt.date || bill.billDate,
         type: 'client_payout',
-        typeLabel: '👨‍🌾 Unbilled Farm Lot',
-        typeBadge: 'badge-warning',
+        typeLabel: '👨‍🌾 Client Bill Payment',
+        typeBadge: 'badge-transit',
         partyName: client ? client.name : 'Farm Owner',
-        particulars: `Estimated Client Payable (${l.lotNumber} - ${l.grossHarvestCount.toLocaleString()} nuts)`,
+        particulars: `Farm Settlement Bill (${bill.billNumber}) ${pmt.notes ? '- ' + pmt.notes : ''}`,
         credit: 0,
-        debit: estimatedCost,
-        method: 'Pending Bill'
+        debit: pmt.amount || bill.netPayable || 0,
+        method: pmt.method || bill.paymentMethod || 'UPI'
       });
-    }
+    });
   });
 
-  // 3. Labour Wage Payouts
+  // 3. Labour Wage Payouts (Only actual paid payroll records)
   const workers = store.getWorkers();
-  let hasWorkerPayroll = false;
   workers.forEach(w => {
     if (w.payrollHistory && w.payrollHistory.length > 0) {
-      hasWorkerPayroll = true;
       w.payrollHistory.forEach(payout => {
         const history = payout.paymentHistory && payout.paymentHistory.length > 0 ? payout.paymentHistory : [
           { id: 'w_pmt_' + payout.id, date: payout.date, amount: payout.amountPaid !== undefined ? payout.amountPaid : payout.netPaid, method: 'Cash', notes: 'Wage payout' }
@@ -1908,24 +1888,6 @@ function getAccountingLedgerItems(startDate, endDate, typeFilter, methodFilter) 
       });
     }
   });
-
-  if (!hasWorkerPayroll) {
-    lots.forEach(l => {
-      const lBreakdown = store.calculateLabourBreakdown(l.grossHarvestCount);
-      items.push({
-        id: 'labour_est_' + l.id,
-        date: l.harvestDate,
-        type: 'labour_wage',
-        typeLabel: '👷 Estimated Labour Wage',
-        typeBadge: 'badge-role',
-        partyName: 'Harvest Labour Team',
-        particulars: `Labour Wages for ${l.lotNumber} (${l.grossHarvestCount.toLocaleString()} nuts)`,
-        credit: 0,
-        debit: lBreakdown.totalLabourWage,
-        method: 'Piece-Rate'
-      });
-    });
-  }
 
   // 4. Operational Overhead Expenses
   const expenses = store.getExpenses();
