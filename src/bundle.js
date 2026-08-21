@@ -2466,6 +2466,16 @@ function openPayrollReviewModal(workerId) {
 
   const currentQuickCashBalance = worker.quickCashBalance || 0;
 
+  const marketRates = (store.getMarketRates() && store.getMarketRates().labourPieceRates) || {};
+  let defaultRoleRate = 2500;
+  if (worker.role === 'cutter') defaultRoleRate = marketRates.cutterRatePer1000 || 2500;
+  else if (worker.role === 'picker') defaultRoleRate = marketRates.pickerRatePer1000 || 1000;
+  else if (worker.role === 'dehusker') defaultRoleRate = marketRates.dehuskerRatePer1000 || 1800;
+  else if (worker.role === 'driver') defaultRoleRate = marketRates.driverRatePer1000 || 800;
+
+  const defaultPieceRate = worker.wageRatePer1000 || defaultRoleRate;
+  const initialCalculatedWage = Math.round((defaultNutsHandled / 1000) * defaultPieceRate);
+
   const titleEl = getModalTitle();
   const bodyEl = getModalBody();
   if (titleEl) titleEl.textContent = `Review Payroll & Nut Sharing: ${worker.name} (${worker.role.toUpperCase()})`;
@@ -2484,15 +2494,22 @@ function openPayrollReviewModal(workerId) {
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:1.25rem;">
-          <label style="color:var(--color-primary); font-weight:700;">Number of Nuts Picked / Handled by ${worker.name}</label>
-          <input type="number" id="payNutCount" class="form-control mono" value="${defaultNutsHandled}" style="font-size:1.15rem; font-weight:700;" required />
+        <div class="form-row" style="margin-bottom:1.25rem;">
+          <div class="form-group">
+            <label style="color:var(--color-primary); font-weight:700;">Number of Nuts Picked / Handled by ${worker.name}</label>
+            <input type="number" id="payNutCount" class="form-control mono" value="${defaultNutsHandled}" style="font-size:1.15rem; font-weight:700;" required />
+          </div>
+          <div class="form-group">
+            <label style="color:var(--color-primary); font-weight:700;">Role Piece-Rate Rate / 1,000 Nuts (₹) [EDITABLE]</label>
+            <input type="number" id="payPieceRate" class="form-control mono" value="${defaultPieceRate}" style="font-size:1.15rem; font-weight:700;" required />
+            <small style="color:var(--text-muted);">Default rate for ${worker.role.toUpperCase()}</small>
+          </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label style="color:var(--color-primary); font-weight:700;">Gross Piece-Rate Wage (₹) [EDITABLE]</label>
-            <input type="number" id="payGrossWage" class="form-control mono" value="0" required />
+            <input type="number" id="payGrossWage" class="form-control mono" value="${initialCalculatedWage}" style="font-weight:700;" required />
           </div>
           <div class="form-group">
             <label style="color:var(--color-accent); font-weight:700;">Quick Cash Adjustment (₹) [EDITABLE]</label>
@@ -2544,6 +2561,7 @@ function openPayrollReviewModal(workerId) {
     `;
 
     const nutInp = getEl('payNutCount');
+    const pieceRateInp = getEl('payPieceRate');
     const grossInp = getEl('payGrossWage');
     const qcInp = getEl('payQuickCashDeduct');
     const allowInp = getEl('payAllowance');
@@ -2551,11 +2569,10 @@ function openPayrollReviewModal(workerId) {
     const payPmtTypeSel = getEl('payPmtType');
     const payPaidNowInp = getEl('payAmountPaidNow');
     const previewBox = getEl('payrollPreviewBox');
-    const equalShareBtn = getEl('btnEqualShare');
 
     const updateCalculatedWage = () => {
       const nuts = Number(nutInp.value) || 0;
-      const rate = worker.wageRatePer1000 || 2500;
+      const rate = Number(pieceRateInp ? pieceRateInp.value : 0) || 0;
       const calculatedWage = Math.round((nuts / 1000) * rate);
       grossInp.value = calculatedWage;
       updateCalc();
@@ -2608,7 +2625,9 @@ function openPayrollReviewModal(workerId) {
     };
 
     nutInp?.addEventListener('input', updateCalculatedWage);
+    pieceRateInp?.addEventListener('input', updateCalculatedWage);
     [grossInp, qcInp, allowInp, dedInp, payPaidNowInp].forEach(inp => inp?.addEventListener('input', updateCalc));
+    updateCalculatedWage();
     payPmtTypeSel?.addEventListener('change', () => {
       if (payPmtTypeSel.value === 'full') {
         const g = Number(grossInp.value) || 0;
