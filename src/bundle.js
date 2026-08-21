@@ -2614,6 +2614,11 @@ function getWorkerNutShareForLot(workerId, lotId, targetRole) {
   if (!lot) return 0;
   
   const attendanceForLot = store.getAttendanceForLot(lotId);
+  const myAtt = attendanceForLot.find(a => a.workerId === workerId);
+  if (myAtt && myAtt.allocatedNutCount !== undefined && myAtt.allocatedNutCount !== null) {
+    return Number(myAtt.allocatedNutCount);
+  }
+
   const worker = store.getWorkerById(workerId);
   const effectiveRole = targetRole || (worker ? worker.role : '');
 
@@ -3041,14 +3046,27 @@ function openEditLotNutSplitModal(lotId) {
   const lot = store.getLotById(lotId);
   if (!lot) return;
   const client = store.getClientById(lot.clientId);
-  const attLogs = store.getAttendanceForLot(lotId);
+  let attLogs = store.getAttendanceForLot(lotId);
+  const grossNuts = Number(lot.grossHarvestCount || 0);
 
   if (!attLogs || attLogs.length === 0) {
-    alert("No workers registered for this harvest lot.");
-    return;
+    const workers = store.getWorkers();
+    if (!workers || workers.length === 0) {
+      alert("No workers registered in system. Please add workers first.");
+      return;
+    }
+    attLogs = workers.map(w => {
+      const sameRoleCount = workers.filter(wr => wr.role === w.role).length || 1;
+      return {
+        workerId: w.id,
+        role: w.role,
+        status: 'present',
+        date: lot.harvestDate,
+        allocatedNutCount: Math.round(grossNuts / sameRoleCount)
+      };
+    });
+    store.saveAttendance(lot.id, attLogs);
   }
-
-  const grossNuts = Number(lot.grossHarvestCount || 0);
 
   const titleEl = getModalTitle();
   const bodyEl = getModalBody();
@@ -3160,7 +3178,7 @@ function openEditLotNutSplitModal(lotId) {
         }
       });
 
-      store.saveData();
+      store.saveAttendance(lot.id, attLogs);
       closeModal();
       renderView(currentTab);
       alert(`Custom labour nut share split saved for ${lot.lotNumber}!`);
