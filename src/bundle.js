@@ -1617,7 +1617,7 @@ function renderWagesView(container) {
                 const attLogs = store.getAttendanceForLot(l.id);
                 const accepted = l.grossHarvestCount - (l.badNutCount || 0);
                 return `
-                  <tr style="cursor:pointer;" onclick="if(event.target.tagName !== 'BUTTON') window.openLotLaboursModal('${l.id}')">
+                  <tr style="cursor:pointer;" onclick="if(!event.target.closest('button')) window.openLotLaboursModal('${l.id}')">
                     <td>${l.harvestDate}</td>
                     <td class="mono" style="font-size:1.05rem;"><strong>${l.lotNumber}</strong></td>
                     <td><strong>${client ? client.name : 'Unknown'}</strong><br><small style="color:var(--text-muted);">${client ? client.location : ''}</small></td>
@@ -1625,12 +1625,12 @@ function renderWagesView(container) {
                     <td class="mono" style="color:var(--color-primary); font-weight:700;">${accepted.toLocaleString()} nuts</td>
                     <td><span class="badge badge-role">${attLogs.length} Labours Present</span></td>
                     <td>
-                      <button class="btn btn-secondary btn-sm" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="window.openEditLotNutSplitModal('${l.id}')">
+                      <button class="btn btn-secondary btn-sm" style="font-weight:700; border-color:var(--color-primary); color:var(--color-primary);" onclick="event.stopPropagation(); window.openEditLotNutSplitModal('${l.id}')">
                         ✏️ Edit Nut Split
                       </button>
                     </td>
                     <td>
-                      <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="window.openLotLaboursModal('${l.id}')">👁️ View Labour Details</button>
+                      <button class="btn btn-primary btn-sm" style="font-weight:700;" onclick="event.stopPropagation(); window.openLotLaboursModal('${l.id}')">👁️ View Labour Details</button>
                     </td>
                   </tr>
                 `;
